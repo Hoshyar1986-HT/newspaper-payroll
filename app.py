@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# 🗞️ Delvero Payroll System - Final Version with Wijk Earn & Day Earn
+# 🗞️ Delvero Payroll System - Final Version with Wijk Earn, Day Earn & Summary
 # ------------------------------------------------------------
 
 import streamlit as st
@@ -40,7 +40,7 @@ def generate_detailed_data():
             trip_cost = km * 0.16
 
             # ----------------------------
-            # Sunday → only Date + Day visible
+            # Sunday → Only Date + Day
             # ----------------------------
             if is_sunday:
                 rows.append({
@@ -81,7 +81,7 @@ def generate_detailed_data():
                 wijks = ["Rotterdam1", "Rotterdam2"]
 
             # ----------------------------
-            # OFF (not Sunday)
+            # OFF day (not Sunday)
             # ----------------------------
             if not wijks:
                 rows.append({
@@ -105,19 +105,21 @@ def generate_detailed_data():
                 continue
 
             # ----------------------------
-            # Calculate daily sums
+            # Calculate daily Wijk Earn + Day Earn
             # ----------------------------
             wijk_earn_list = []
+            wijk_prices = []
+
             for w in wijks:
                 seg = segment_map.get(w, 3)
                 price = price_map.get(seg, 750)
-                wijk_earn = price / 26
-                wijk_earn_list.append(wijk_earn)
+                wijk_prices.append(price)
+                wijk_earn_list.append(price / 26)
 
             day_earn_total = sum(wijk_earn_list) + trip_cost
 
             # ----------------------------
-            # Add a row per Wijk
+            # Add rows (one per Wijk)
             # ----------------------------
             for j, w in enumerate(wijks):
                 seg = segment_map.get(w, 3)
@@ -125,7 +127,6 @@ def generate_detailed_data():
                 wijk_earn = price / 26
 
                 rows.append({
-
                     "Date_raw": date_str,
                     "Employee_raw": emp,
 
@@ -146,6 +147,7 @@ def generate_detailed_data():
 
     return pd.DataFrame(rows)
 
+
 # ------------------------------------------------------------
 # Row coloring
 # ------------------------------------------------------------
@@ -159,8 +161,9 @@ def color_rows(row):
 
     return ["background-color: white"] * len(row)
 
+
 # ------------------------------------------------------------
-# Login users
+# Users
 # ------------------------------------------------------------
 users = {
     "Maryam": {"password": "1234", "role": "manager"},
@@ -170,7 +173,7 @@ users = {
 }
 
 # ------------------------------------------------------------
-# Login interface
+# Login
 # ------------------------------------------------------------
 if "logged_in" not in st.session_state:
     st.title("🗞️ Delvero Payroll Login")
@@ -188,6 +191,7 @@ if "logged_in" not in st.session_state:
             st.rerun()
         else:
             st.error("❌ Invalid username or password")
+
 
 # ------------------------------------------------------------
 # Main app
@@ -210,7 +214,9 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
             st.session_state.clear()
             st.rerun()
 
+    # ------------------------------------------------------------
     # Manager Dashboard
+    # ------------------------------------------------------------
     if role == "manager" and menu == "📊 Dashboard":
 
         st.title("📊 Manager Dashboard")
@@ -218,6 +224,7 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
 
         df = generate_detailed_data()
 
+        # Filters
         with st.expander("🔍 Filters"):
             employees = df["Employee_raw"].unique().tolist()
             selected_employees = st.multiselect("Employees", employees, default=employees)
@@ -235,10 +242,34 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
 
         display_df = df[mask].drop(columns=["Date_raw", "Employee_raw"])
 
+        # Show table
         st.dataframe(
             display_df.style.apply(color_rows, axis=1),
             use_container_width=True,
             height=800
+        )
+
+        # ----------------------------
+        # Total Earn Summary
+        # ----------------------------
+        st.markdown("---")
+        st.subheader("💰 Total Earn (Selected Range)")
+
+        day_earn_values = (
+            display_df["Day Earn (€)"]
+            .replace("-", None)
+            .replace("", None)
+            .dropna()
+        )
+
+        def parse_euro(x):
+            return float(x.replace("€", "").strip())
+
+        total_sum = day_earn_values.apply(parse_euro).sum()
+
+        st.metric(
+            label="Total Earn (€)",
+            value=f"€ {total_sum:,.2f}"
         )
 
         st.caption("🔴 Sunday  |  🟧 Off  |  ⚪ Workday")
