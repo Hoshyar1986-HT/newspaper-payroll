@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# 🗞️ Delvero Payroll System - Final Version (Multi-Wijk, Sunday Fix, Dashes)
+# 🗞️ Delvero Payroll System - Final Version with Wijk Earn & Day Earn
 # ------------------------------------------------------------
 
 import streamlit as st
@@ -40,23 +40,26 @@ def generate_detailed_data():
             trip_cost = km * 0.16
 
             # ----------------------------
-            # Sunday (Only Date + Day visible)
+            # Sunday → only Date + Day visible
             # ----------------------------
             if is_sunday:
                 rows.append({
                     "Date_raw": date_str,
                     "Employee_raw": emp,
+
                     "Date": date_str,
                     "Day": "Sunday",
                     "Employee": "",
                     "On/Off of Work": "Off",
+
                     "Wijk(s) Name": "",
                     "Wijk Volume/Segment": "",
                     "Wijk Price (€)": "",
+                    "Wijk Earn (€)": "",
+
                     "Trip (KM)": "",
                     "Trip Cost (€)": "",
-                    "Day Earn (€)": "",
-                    "Total Earn (€)": ""
+                    "Day Earn (€)": ""
                 })
                 continue
 
@@ -65,6 +68,7 @@ def generate_detailed_data():
             # ----------------------------
             if emp == "Hossein":
                 wijks = [] if current_day.day == 12 else ["Chaam1", "Chaam4", "Galder1"]
+
             elif emp == "Hoshyar":
                 if current_day.day == 12:
                     wijks = ["Chaam1", "Chaam4", "Galder1"]
@@ -72,45 +76,56 @@ def generate_detailed_data():
                     wijks = ["Lexmond2"]
                 else:
                     wijks = []
+
             elif emp == "Masoud":
                 wijks = ["Rotterdam1", "Rotterdam2"]
 
             # ----------------------------
-            # OFF day (not Sunday)
+            # OFF (not Sunday)
             # ----------------------------
             if not wijks:
                 rows.append({
                     "Date_raw": date_str,
                     "Employee_raw": emp,
+
                     "Date": date_str,
                     "Day": weekday,
                     "Employee": emp,
                     "On/Off of Work": "Off",
+
                     "Wijk(s) Name": "",
                     "Wijk Volume/Segment": "",
                     "Wijk Price (€)": "",
+                    "Wijk Earn (€)": "",
+
                     "Trip (KM)": "",
                     "Trip Cost (€)": "",
-                    "Day Earn (€)": "",
-                    "Total Earn (€)": ""
+                    "Day Earn (€)": ""
                 })
                 continue
 
             # ----------------------------
-            # Calculate earnings
+            # Calculate daily sums
             # ----------------------------
-            total_wijk_price = sum(price_map.get(segment_map.get(w, 3), 750) for w in wijks)
-            day_earn = total_wijk_price / 26
-            total_earn = day_earn + trip_cost
+            wijk_earn_list = []
+            for w in wijks:
+                seg = segment_map.get(w, 3)
+                price = price_map.get(seg, 750)
+                wijk_earn = price / 26
+                wijk_earn_list.append(wijk_earn)
+
+            day_earn_total = sum(wijk_earn_list) + trip_cost
 
             # ----------------------------
-            # Add row for each Wijk
+            # Add a row per Wijk
             # ----------------------------
             for j, w in enumerate(wijks):
                 seg = segment_map.get(w, 3)
                 price = price_map.get(seg, 750)
+                wijk_earn = price / 26
 
                 rows.append({
+
                     "Date_raw": date_str,
                     "Employee_raw": emp,
 
@@ -122,11 +137,11 @@ def generate_detailed_data():
                     "Wijk(s) Name": w,
                     "Wijk Volume/Segment": seg,
                     "Wijk Price (€)": f"€ {price:.2f}",
+                    "Wijk Earn (€)": f"€ {wijk_earn:.2f}",
 
                     "Trip (KM)": km if j == 0 else "-",
                     "Trip Cost (€)": f"€ {trip_cost:.2f}" if j == 0 else "-",
-                    "Day Earn (€)": f"€ {day_earn:.2f}" if j == 0 else "-",
-                    "Total Earn (€)": f"€ {total_earn:.2f}" if j == 0 else "-"
+                    "Day Earn (€)": f"€ {day_earn_total:.2f}" if j == 0 else "-"
                 })
 
     return pd.DataFrame(rows)
@@ -135,19 +150,17 @@ def generate_detailed_data():
 # Row coloring
 # ------------------------------------------------------------
 def color_rows(row):
-    # Sunday rows
+
     if row["Day"] == "Sunday":
-        return ["background-color: #ff9999"] * len(row)  # red
+        return ["background-color: #ff9999"] * len(row)   # red
 
-    # Off rows (not Sunday)
     if row["On/Off of Work"] == "Off":
-        return ["background-color: #ffcc99"] * len(row)  # orange
+        return ["background-color: #ffcc99"] * len(row)   # orange
 
-    # All others
     return ["background-color: white"] * len(row)
 
 # ------------------------------------------------------------
-# User login data
+# Login users
 # ------------------------------------------------------------
 users = {
     "Maryam": {"password": "1234", "role": "manager"},
@@ -157,7 +170,7 @@ users = {
 }
 
 # ------------------------------------------------------------
-# Login screen
+# Login interface
 # ------------------------------------------------------------
 if "logged_in" not in st.session_state:
     st.title("🗞️ Delvero Payroll Login")
@@ -177,9 +190,10 @@ if "logged_in" not in st.session_state:
             st.error("❌ Invalid username or password")
 
 # ------------------------------------------------------------
-# Main application
+# Main app
 # ------------------------------------------------------------
 if "logged_in" in st.session_state and st.session_state.logged_in:
+
     user = st.session_state.username
     role = st.session_state.role
 
@@ -187,41 +201,39 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
     with st.sidebar:
         st.header(f"👋 Welcome, {user}")
         if role == "manager":
-            menu = st.radio("Select section:", ["📊 Dashboard", "⚙️ Settings"])
+            menu = st.radio("Menu", ["📊 Dashboard", "⚙️ Settings"])
         else:
-            menu = st.radio("Select section:", ["📋 My Work", "⚙️ Profile"])
+            menu = st.radio("Menu", ["📋 My Work", "⚙️ Profile"])
 
         st.divider()
         if st.button("🚪 Logout"):
             st.session_state.clear()
             st.rerun()
 
-    # ----------------------------
     # Manager Dashboard
-    # ----------------------------
     if role == "manager" and menu == "📊 Dashboard":
+
         st.title("📊 Manager Dashboard")
-        st.subheader("Daily Payroll Report (Multi-Wijk, Day Earn, Total Earn)")
+        st.subheader("Daily Payroll (Wijk Earn + Day Earn)")
 
         df = generate_detailed_data()
 
-        # Filters (using RAW columns)
-        with st.expander("🔍 Filter Options"):
-            employees = sorted(df["Employee_raw"].unique().tolist())
-            selected_employees = st.multiselect("Select Employee(s):", employees, default=employees)
+        with st.expander("🔍 Filters"):
+            employees = df["Employee_raw"].unique().tolist()
+            selected_employees = st.multiselect("Employees", employees, default=employees)
 
             min_date = pd.to_datetime(df["Date_raw"]).min().date()
             max_date = pd.to_datetime(df["Date_raw"]).max().date()
-            start_date, end_date = st.date_input("Select Date Range:", [min_date, max_date])
+
+            start_date, end_date = st.date_input("Date Range:", [min_date, max_date])
 
         mask = (
             df["Employee_raw"].isin(selected_employees) &
             (pd.to_datetime(df["Date_raw"]).dt.date >= start_date) &
             (pd.to_datetime(df["Date_raw"]).dt.date <= end_date)
         )
-        filtered_df = df[mask].copy()
 
-        display_df = filtered_df.drop(columns=["Date_raw", "Employee_raw"])
+        display_df = df[mask].drop(columns=["Date_raw", "Employee_raw"])
 
         st.dataframe(
             display_df.style.apply(color_rows, axis=1),
@@ -229,10 +241,10 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
             height=800
         )
 
-        st.caption("🔴 Sunday 🟧 Off ⚪ Workday")
+        st.caption("🔴 Sunday  |  🟧 Off  |  ⚪ Workday")
 
 # ------------------------------------------------------------
-# Styling
+# General Styling
 # ------------------------------------------------------------
 st.markdown("""
 <style>
@@ -242,7 +254,7 @@ html, body, [class*="css"] {
 .stButton>button {
     width: 100%;
     font-size: 16px;
-    padding: 0.6em 0;
+    padding: 8px 0;
     border-radius: 10px;
 }
 </style>
