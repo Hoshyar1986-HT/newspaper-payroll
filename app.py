@@ -1,303 +1,74 @@
 import streamlit as st
-import sqlite3
 import pandas as pd
-from datetime import date, datetime, timedelta
+from datetime import date
 
-# -----------------------------
-# Page setup
-# -----------------------------
-st.set_page_config(
-    page_title="Delvero Payroll",
-    page_icon="🗞️",
-    layout="centered",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(page_title="Newspaper Payroll", page_icon="🗞️", layout="wide")
+st.title("🗞️ Newspaper Payroll – Data Entry")
 
-# -----------------------------
-# Database connection
-# -----------------------------
-conn = sqlite3.connect('payroll.db', check_same_thread=False)
-c = conn.cursor()
-
-# -----------------------------
-# Create tables if not exist
-# -----------------------------
-c.execute('''
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE,
-    password TEXT,
-    role TEXT,
-    manager_id INTEGER
-)
-''')
-
-c.execute('''
-CREATE TABLE IF NOT EXISTS activities (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    date TEXT,
-    wijk TEXT,
-    segments INTEGER,
-    note TEXT
-)
-''')
-conn.commit()
-
-# -----------------------------
-# Initialize default users
-# -----------------------------
-def initialize_default_users():
-    c.execute("SELECT COUNT(*) FROM users")
-    count = c.fetchone()[0]
-    if count == 0:
-        c.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-                  ("Maryam", "1234", "manager"))
-        conn.commit()
-        c.execute("SELECT id FROM users WHERE username='Maryam'")
-        manager_id = c.fetchone()[0]
-
-        employees = ["Hoshyar", "Hossein", "Masoud"]
-        for emp in employees:
-            c.execute("INSERT INTO users (username, password, role, manager_id) VALUES (?, ?, ?, ?)",
-                      (emp, "1234", "employee", manager_id))
-        conn.commit()
-        print("✅ Default users created.")
-    else:
-        print("ℹ️ Users already exist.")
-
-initialize_default_users()
-
-# -----------------------------
-# Helper functions
-# -----------------------------
-def get_user_id(username):
-    c.execute("SELECT id FROM users WHERE username=?", (username,))
-    result = c.fetchone()
-    return result[0] if result else None
-
-def add_activity(user_id, day, wijk):
-    c.execute('INSERT INTO activities (user_id, date, wijk, segments, note) VALUES (?, ?, ?, ?, ?)',
-              (user_id, day, wijk, 1, ""))
-    conn.commit()
-
-def check_login(username, password):
-    c.execute('SELECT id, role, manager_id FROM users WHERE username=? AND password=?',
-              (username, password))
-    return c.fetchone()
-
-def get_all_activities_for_manager(manager_id):
-    c.execute('''
-        SELECT u.username, a.date, a.wijk, a.segments, a.note
-        FROM activities a
-        JOIN users u ON a.user_id = u.id
-        WHERE u.manager_id=?
-        ORDER BY date(a.date) ASC
-    ''', (manager_id,))
-    return c.fetchall()
-
-# -----------------------------
-# Seed sample data (1–13 Nov 2025)
-# -----------------------------
-def seed_sample_data():
-    c.execute("SELECT COUNT(*) FROM activities")
-    if c.fetchone()[0] > 0:
-        print("ℹ️ Sample data already exists.")
-        return
-
-    hossein_id = get_user_id("Hossein")
-    hoshyar_id = get_user_id("Hoshyar")
-    masoud_id = get_user_id("Masoud")
-
-    start_date = datetime(2025, 11, 1)
-    end_date = datetime(2025, 11, 13)
-
-    for i in range((end_date - start_date).days + 1):
-        current_day = start_date + timedelta(days=i)
-        weekday = current_day.weekday()
-        if weekday == 6:  # Skip Sundays
-            continue
-        day_str = current_day.strftime("%Y-%m-%d")
-
-        # Hossein
-        if current_day.day != 12:
-            for wijk in ["Chaam1", "Chaam4", "Galder1"]:
-                add_activity(hossein_id, day_str, wijk)
-
-        # Hoshyar
-        if current_day.day == 12:
-            for wijk in ["Chaam1", "Chaam4", "Galder1"]:
-                add_activity(hoshyar_id, day_str, wijk)
-        elif current_day.day == 13:
-            add_activity(hoshyar_id, day_str, "Lexmond2")
-
-        # Masoud
-        for wijk in ["Rotterdam1", "Rotterdam2"]:
-            add_activity(masoud_id, day_str, wijk)
-
-    print("✅ Sample activities seeded for Nov 1–13, 2025.")
-
-seed_sample_data()
-
-# -----------------------------
-# Login page
-# -----------------------------
-if "role" not in st.session_state:
-    st.title("🗞️ Delvero Payroll Login")
-
-    with st.form("login"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Login")
-
-    if submitted:
-        user = check_login(username, password)
-        if user:
-            st.session_state['user_id'] = user[0]
-            st.session_state['role'] = user[1]
-            st.session_state['manager_id'] = user[2]
-            st.session_state['username'] = username
-            st.rerun()
-        else:
-            st.error("❌ Invalid username or password")
-
-# -----------------------------
-# Manager Dashboard
-# -----------------------------
-if 'role' in st.session_state and st.session_state['role'] == 'manager':
-    st.title(f"📊 Manager Dashboard ({st.session_state['username']})")
-
-    with st.sidebar:
-        st.header("⚙️ Settings Menu")
-        choice = st.radio("Select an option:", [
-            "⬅️ Back to Dashboard",
-            "👷 Manage Employees",
-            "🗺️ Manage Wijk (coming soon)"
-        ])
-
-        st.divider()
-        if st.button("🚪 Logout"):
-            st.session_state.clear()
-            st.rerun()
-
-    if choice == "⬅️ Back to Dashboard":
-        st.subheader("📈 Daily Employee Activity Summary")
-
-        records = get_all_activities_for_manager(st.session_state['user_id'])
-        if not records:
-            st.info("No activities recorded yet.")
-        else:
-            df = pd.DataFrame(records, columns=["Employee", "Date", "Wijk", "Segments", "Note"])
-
-            # --- Group by Employee + Date ---
-            grouped = (
-                df.groupby(["Employee", "Date"])
-                .agg({
-                    "Wijk": lambda x: ", ".join(sorted(x)),
-                    "Segments": "sum"
-                })
-                .reset_index()
-                .sort_values(["Employee", "Date"])
-            )
-
-            # --- Filter Panel ---
-            with st.expander("🔍 Filter Options"):
-                employees = grouped["Employee"].unique().tolist()
-                selected_employees = st.multiselect("Select Employee(s):", employees, default=employees)
-
-                min_date = pd.to_datetime(grouped["Date"]).min().date()
-                max_date = pd.to_datetime(grouped["Date"]).max().date()
-                start_date, end_date = st.date_input("Select Date Range:", [min_date, max_date])
-
-                exclude_sundays = st.checkbox("Exclude Sundays", value=True)
-
-            # --- Apply Filters ---
-            filtered_df = grouped.copy()
-            filtered_df["Date"] = pd.to_datetime(filtered_df["Date"])
-            filtered_df = filtered_df[
-                (filtered_df["Employee"].isin(selected_employees)) &
-                (filtered_df["Date"].dt.date >= start_date) &
-                (filtered_df["Date"].dt.date <= end_date)
-            ]
-
-            if exclude_sundays:
-                filtered_df["weekday"] = filtered_df["Date"].dt.weekday
-                filtered_df = filtered_df[filtered_df["weekday"] != 6]
-                filtered_df.drop(columns=["weekday"], inplace=True)
-
-            # --- Display filtered daily summary ---
-            st.dataframe(filtered_df, use_container_width=True)
-
-            # --- Summary per employee ---
-            st.markdown("### 📊 Summary per Employee")
-            summary = (
-                filtered_df.groupby("Employee")
-                .agg(
-                    total_days=("Date", "nunique"),
-                    total_wijks=("Wijk", lambda x: sum(len(i.split(", ")) for i in x)),
-                    total_segments=("Segments", "sum")
-                )
-                .reset_index()
-            )
-            st.dataframe(summary, use_container_width=True)
-
-            # --- Download filtered data ---
-            csv = filtered_df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="⬇️ Download Filtered Data (CSV)",
-                data=csv,
-                file_name="filtered_daily_summary.csv",
-                mime="text/csv"
-            )
-
-    elif choice == "👷 Manage Employees":
-        st.subheader("Employee Management (static data for now)")
-        st.info("Employee management options will be available soon.")
-
-    elif choice == "🗺️ Manage Wijk (coming soon)":
-        st.info("Wijk rate management will be implemented in the next version.")
-
-# -----------------------------
-# Employee Dashboard
-# -----------------------------
-if 'role' in st.session_state and st.session_state['role'] == 'employee':
-    st.title(f"👷 Employee Dashboard ({st.session_state['username']})")
-
-    st.subheader("🗓️ Log Daily Activity")
-    wijk = st.text_input("Wijk Name")
-    segments = st.number_input("Number of Segments", min_value=0, value=0)
-    note = st.text_area("Additional Notes (optional)")
-    if st.button("Submit"):
-        add_activity(st.session_state['user_id'], str(date.today()), wijk)
-        st.success("✅ Activity recorded successfully!")
-
-    st.subheader("📋 My Activity History")
-    c.execute('SELECT date, wijk FROM activities WHERE user_id=? ORDER BY date DESC', (st.session_state['user_id'],))
-    data = c.fetchall()
-    if data:
-        df = pd.DataFrame(data, columns=["Date", "Wijk"])
-        st.dataframe(df, use_container_width=True)
-    else:
-        st.info("No activities yet.")
-
-    st.divider()
-    if st.button("🚪 Logout"):
-        st.session_state.clear()
-        st.rerun()
-
-# -----------------------------
-# Styling
-# -----------------------------
 st.markdown("""
-<style>
-html, body, [class*="css"] {
-    font-size: 16px !important;
-}
-.stButton>button {
-    width: 100%;
-    font-size: 18px;
-    padding: 0.75em 0;
-    border-radius: 12px;
-}
-</style>
-""", unsafe_allow_html=True)
+در این بخش اطلاعات نیروها، ویک‌ها، برنامه کاری و تعطیلات را وارد کن.
+پس از تکمیل فرم‌ها، روی **محاسبه حقوق** کلیک کن.
+""")
+
+# --- Form 1: Users ---
+st.header("1️⃣ کاربران (Users)")
+st.markdown("برای افزودن یا حذف نیرو، جدول زیر را ویرایش کن:")
+
+users_df = st.data_editor(
+    pd.DataFrame([{"user_id": "USER1", "name": "Ali"}]),
+    num_rows="dynamic",
+    use_container_width=True,
+)
+
+# --- Form 2: Wijks ---
+st.header("2️⃣ ویک‌ها (Wijks)")
+st.markdown("هر ویک می‌تواند نرخ ثابت یا نرخ بر اساس سگمنت داشته باشد:")
+
+wijk_df = st.data_editor(
+    pd.DataFrame([
+        {"wijk": "Rijen3", "price_type": "flat", "flat_daily_price": 50, "segments": 4, "segment_prices": ""},
+        {"wijk": "Baarle 5", "price_type": "by_segment", "flat_daily_price": "", "segments": 3, "segment_prices": "[12,10,8]"},
+    ]),
+    num_rows="dynamic",
+    use_container_width=True,
+)
+
+# --- Form 3: Schedule ---
+st.header("3️⃣ برنامه کاری (Schedule)")
+st.markdown("برای هر نیرو بازه تاریخی و ویک مربوطه را وارد کن:")
+
+schedule_df = st.data_editor(
+    pd.DataFrame([
+        {"user_id": "USER1", "start_date": "2025-11-06", "end_date": "2025-11-10", "wijk": "Rijen3"},
+        {"user_id": "USER1", "start_date": "2025-11-11", "end_date": "2025-11-23", "wijk": "Baarle 5"},
+    ]),
+    num_rows="dynamic",
+    use_container_width=True,
+)
+
+# --- Form 4: Holidays ---
+st.header("4️⃣ تعطیلات (Holidays)")
+st.markdown("در صورت وجود تعطیلات رسمی، تاریخ آن‌ها را اضافه کن:")
+
+holidays_df = st.data_editor(
+    pd.DataFrame([{"date": ""}]),
+    num_rows="dynamic",
+    use_container_width=True,
+)
+
+# --- Form 5: Month/Year ---
+st.header("5️⃣ انتخاب ماه و سال محاسبه")
+col1, col2 = st.columns(2)
+with col1:
+    year = st.number_input("سال", min_value=2020, max_value=2100, value=2025)
+with col2:
+    month = st.number_input("ماه", min_value=1, max_value=12, value=11)
+month_year = f"{year}-{month:02d}"
+
+st.markdown("---")
+if st.button("📊 محاسبه حقوق (فعلاً آزمایشی)"):
+    st.success(f"داده‌ها ثبت شدند برای ماه {month_year}. در مرحله بعد محاسبه افزوده می‌شود.")
+    st.write("**Users:**", users_df)
+    st.write("**Wijks:**", wijk_df)
+    st.write("**Schedule:**", schedule_df)
+    st.write("**Holidays:**", holidays_df)
