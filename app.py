@@ -1,74 +1,163 @@
+# ------------------------------------------------------------
+# 📊 Delvero Payroll Dashboard - Streamlit App
+# Author: (Your Name)
+# Date: November 2025
+# ------------------------------------------------------------
+
 import streamlit as st
 import pandas as pd
-from datetime import date
+from datetime import datetime, timedelta
 
-st.set_page_config(page_title="Newspaper Payroll", page_icon="🗞️", layout="wide")
-st.title("🗞️ Newspaper Payroll – Data Entry")
+# ------------------------------------------------------------
+# Page setup
+# ------------------------------------------------------------
+st.set_page_config(
+    page_title="Delvero Payroll Dashboard",
+    page_icon="🗞️",
+    layout="wide"
+)
+
+st.title("🗞️ Delvero Payroll System")
+st.subheader("Manager Dashboard – Daily Employee Overview (Nov 1–13, 2025)")
 
 st.markdown("""
-در این بخش اطلاعات نیروها، ویک‌ها، برنامه کاری و تعطیلات را وارد کن.
-پس از تکمیل فرم‌ها، روی **محاسبه حقوق** کلیک کن.
+This dashboard shows the daily activity log of employees between **November 1–13, 2025**,  
+based on actual recorded working days and holidays.  
+Each row represents **one employee’s activity on a given day**.
 """)
 
-# --- Form 1: Users ---
-st.header("1️⃣ کاربران (Users)")
-st.markdown("برای افزودن یا حذف نیرو، جدول زیر را ویرایش کن:")
+# ------------------------------------------------------------
+# Generate daily data (Nov 1–13)
+# ------------------------------------------------------------
+def generate_daily_data():
+    start_date = datetime(2025, 11, 1)
+    end_date = datetime(2025, 11, 13)
+    all_rows = []
+    employees = ["Hossein", "Hoshyar", "Masoud"]
 
-users_df = st.data_editor(
-    pd.DataFrame([{"user_id": "USER1", "name": "Ali"}]),
-    num_rows="dynamic",
+    for i in range((end_date - start_date).days + 1):
+        current_day = start_date + timedelta(days=i)
+        weekday = current_day.strftime("%A")
+        is_sunday = (current_day.weekday() == 6)
+
+        for emp in employees:
+            if is_sunday:
+                status = "Off"
+                wijks = ""
+            else:
+                # Hossein’s pattern
+                if emp == "Hossein":
+                    if current_day.day == 12:
+                        status = "Off"
+                        wijks = ""
+                    else:
+                        status = "On"
+                        wijks = "Chaam1, Chaam4, Galder1"
+
+                # Hoshyar’s pattern
+                elif emp == "Hoshyar":
+                    if current_day.day == 12:
+                        status = "On"
+                        wijks = "Chaam1, Chaam4, Galder1"
+                    elif current_day.day == 13:
+                        status = "On"
+                        wijks = "Lexmond2"
+                    else:
+                        status = "Off"
+                        wijks = ""
+
+                # Masoud’s pattern
+                elif emp == "Masoud":
+                    status = "On" if not is_sunday else "Off"
+                    wijks = "Rotterdam1, Rotterdam2" if not is_sunday else ""
+
+            all_rows.append({
+                "Date": current_day.strftime("%Y-%m-%d"),
+                "Day": weekday,
+                "Employee": emp,
+                "Work Status": status,
+                "Wijk(s)": wijks
+            })
+
+    return pd.DataFrame(all_rows)
+
+# ------------------------------------------------------------
+# Generate and display data
+# ------------------------------------------------------------
+df = generate_daily_data()
+
+# ------------------------------------------------------------
+# Filter controls
+# ------------------------------------------------------------
+with st.expander("🔍 Filter Options"):
+    employees = df["Employee"].unique().tolist()
+    selected_employees = st.multiselect("Select Employee(s):", employees, default=employees)
+
+    min_date = pd.to_datetime(df["Date"]).min().date()
+    max_date = pd.to_datetime(df["Date"]).max().date()
+    start_date, end_date = st.date_input("Select Date Range:", [min_date, max_date])
+
+# Apply filters
+filtered_df = df.copy()
+filtered_df["Date"] = pd.to_datetime(filtered_df["Date"])
+filtered_df = filtered_df[
+    (filtered_df["Employee"].isin(selected_employees)) &
+    (filtered_df["Date"].dt.date >= start_date) &
+    (filtered_df["Date"].dt.date <= end_date)
+]
+
+# ------------------------------------------------------------
+# Color styling
+# ------------------------------------------------------------
+def color_rows(row):
+    if row["Work Status"] == "On":
+        return ["background-color: #b6f7b6"] * len(row)  # Light green
+    elif row["Day"] == "Sunday":
+        return ["background-color: #fff5b6"] * len(row)  # Light yellow
+    else:
+        return ["background-color: #f7b6b6"] * len(row)  # Light red
+
+# ------------------------------------------------------------
+# Display table
+# ------------------------------------------------------------
+st.dataframe(
+    filtered_df.style.apply(color_rows, axis=1),
     use_container_width=True,
+    height=700
 )
 
-# --- Form 2: Wijks ---
-st.header("2️⃣ ویک‌ها (Wijks)")
-st.markdown("هر ویک می‌تواند نرخ ثابت یا نرخ بر اساس سگمنت داشته باشد:")
+# ------------------------------------------------------------
+# Summary Section
+# ------------------------------------------------------------
+st.markdown("### 📊 Summary per Employee")
 
-wijk_df = st.data_editor(
-    pd.DataFrame([
-        {"wijk": "Rijen3", "price_type": "flat", "flat_daily_price": 50, "segments": 4, "segment_prices": ""},
-        {"wijk": "Baarle 5", "price_type": "by_segment", "flat_daily_price": "", "segments": 3, "segment_prices": "[12,10,8]"},
-    ]),
-    num_rows="dynamic",
-    use_container_width=True,
+summary = (
+    filtered_df.groupby("Employee")
+    .agg(
+        Total_Work_Days=("Date", "nunique"),
+        Total_On_Days=("Work Status", lambda x: (x == "On").sum()),
+        Total_Off_Days=("Work Status", lambda x: (x == "Off").sum())
+    )
+    .reset_index()
 )
 
-# --- Form 3: Schedule ---
-st.header("3️⃣ برنامه کاری (Schedule)")
-st.markdown("برای هر نیرو بازه تاریخی و ویک مربوطه را وارد کن:")
+st.dataframe(summary, use_container_width=True)
 
-schedule_df = st.data_editor(
-    pd.DataFrame([
-        {"user_id": "USER1", "start_date": "2025-11-06", "end_date": "2025-11-10", "wijk": "Rijen3"},
-        {"user_id": "USER1", "start_date": "2025-11-11", "end_date": "2025-11-23", "wijk": "Baarle 5"},
-    ]),
-    num_rows="dynamic",
-    use_container_width=True,
-)
+# ------------------------------------------------------------
+# Legend and Style
+# ------------------------------------------------------------
+st.caption("🟩 On Duty 🟥 Off 🟨 Sunday (Holiday)")
 
-# --- Form 4: Holidays ---
-st.header("4️⃣ تعطیلات (Holidays)")
-st.markdown("در صورت وجود تعطیلات رسمی، تاریخ آن‌ها را اضافه کن:")
-
-holidays_df = st.data_editor(
-    pd.DataFrame([{"date": ""}]),
-    num_rows="dynamic",
-    use_container_width=True,
-)
-
-# --- Form 5: Month/Year ---
-st.header("5️⃣ انتخاب ماه و سال محاسبه")
-col1, col2 = st.columns(2)
-with col1:
-    year = st.number_input("سال", min_value=2020, max_value=2100, value=2025)
-with col2:
-    month = st.number_input("ماه", min_value=1, max_value=12, value=11)
-month_year = f"{year}-{month:02d}"
-
-st.markdown("---")
-if st.button("📊 محاسبه حقوق (فعلاً آزمایشی)"):
-    st.success(f"داده‌ها ثبت شدند برای ماه {month_year}. در مرحله بعد محاسبه افزوده می‌شود.")
-    st.write("**Users:**", users_df)
-    st.write("**Wijks:**", wijk_df)
-    st.write("**Schedule:**", schedule_df)
-    st.write("**Holidays:**", holidays_df)
+st.markdown("""
+<style>
+html, body, [class*="css"] {
+    font-size: 15px !important;
+}
+.stButton>button {
+    width: 100%;
+    font-size: 16px;
+    padding: 0.6em 0;
+    border-radius: 10px;
+}
+</style>
+""", unsafe_allow_html=True)
