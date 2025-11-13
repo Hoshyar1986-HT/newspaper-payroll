@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import date
 
 # -----------------------------
-# تنظیمات صفحه
+# Page setup
 # -----------------------------
 st.set_page_config(
     page_title="Delvero Payroll",
@@ -14,13 +14,13 @@ st.set_page_config(
 )
 
 # -----------------------------
-# اتصال به دیتابیس
+# Database connection
 # -----------------------------
 conn = sqlite3.connect('payroll.db', check_same_thread=False)
 c = conn.cursor()
 
 # -----------------------------
-# ایجاد جداول در صورت عدم وجود
+# Create tables if not exist
 # -----------------------------
 c.execute('''
 CREATE TABLE IF NOT EXISTS users (
@@ -45,35 +45,35 @@ CREATE TABLE IF NOT EXISTS activities (
 conn.commit()
 
 # -----------------------------
-# افزودن داده‌های اولیه (Maryam و نیروهایش)
+# Initialize default users (Maryam + employees)
 # -----------------------------
 def initialize_default_users():
     c.execute("SELECT COUNT(*) FROM users")
     count = c.fetchone()[0]
     if count == 0:
-        # افزودن کارفرما Maryam
+        # Add main manager
         c.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
                   ("Maryam", "1234", "manager"))
         conn.commit()
 
-        # گرفتن ID کارفرما
+        # Get manager ID
         c.execute("SELECT id FROM users WHERE username='Maryam'")
         manager_id = c.fetchone()[0]
 
-        # افزودن نیروها
+        # Add employees
         employees = ["Hoshyar", "Hossein", "Masoud"]
         for emp in employees:
             c.execute("INSERT INTO users (username, password, role, manager_id) VALUES (?, ?, ?, ?)",
                       (emp, "1234", "employee", manager_id))
         conn.commit()
-        print("✅ Default users added.")
+        print("✅ Default users created.")
     else:
         print("ℹ️ Users already exist.")
 
 initialize_default_users()
 
 # -----------------------------
-# توابع دیتابیس
+# Database helper functions
 # -----------------------------
 def check_login(username, password):
     c.execute('SELECT id, role, manager_id FROM users WHERE username=? AND password=?',
@@ -113,15 +113,15 @@ def get_all_activities_for_manager(manager_id):
     return c.fetchall()
 
 # -----------------------------
-# صفحه ورود (فقط اگر هنوز وارد نشده)
+# Login page (only if not logged in)
 # -----------------------------
 if "role" not in st.session_state:
     st.title("🗞️ Delvero Payroll Login")
 
     with st.form("login"):
-        username = st.text_input("نام کاربری")
-        password = st.text_input("رمز عبور", type="password")
-        submitted = st.form_submit_button("ورود")
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Login")
 
     if submitted:
         user = check_login(username, password)
@@ -132,93 +132,90 @@ if "role" not in st.session_state:
             st.session_state['username'] = username
             st.rerun()
         else:
-            st.error("❌ نام کاربری یا رمز عبور اشتباه است")
+            st.error("❌ Invalid username or password")
 
 # -----------------------------
-# پنل کارفرما
+# Manager dashboard with sidebar menu
 # -----------------------------
 if 'role' in st.session_state and st.session_state['role'] == 'manager':
-    # نوار بالای داشبورد
-    col1, col2 = st.columns([4, 1])
-    with col1:
-        st.title(f"📊 داشبورد کارفرما ({st.session_state['username']})")
-    with col2:
-        if st.button("⚙️ تنظیمات"):
-            st.session_state["show_settings"] = not st.session_state.get("show_settings", False)
+    st.title(f"📊 Manager Dashboard ({st.session_state['username']})")
 
-    # اگر تنظیمات باز باشد
-    if st.session_state.get("show_settings", False):
-        st.subheader("⚙️ تنظیمات مدیریتی")
+    # Sidebar menu
+    with st.sidebar:
+        st.header("⚙️ Settings Menu")
+        choice = st.radio("Choose an option:", [
+            "⬅️ Back to Dashboard",
+            "👷 Manage Employees",
+            "🗺️ Manage Wijk (coming soon)"
+        ])
 
-        # مدیریت نیروها
-        st.markdown("### 👷 مدیریت نیروها")
+        st.divider()
+        if st.button("🚪 Logout"):
+            st.session_state.clear()
+            st.rerun()
+
+    # Dashboard main content
+    if choice == "⬅️ Back to Dashboard":
+        st.subheader("📈 Employee Work Report")
+        records = get_all_activities_for_manager(st.session_state['user_id'])
+        if records:
+            df = pd.DataFrame(records, columns=["Employee", "Date", "Wijk", "Segments", "Note"])
+            st.dataframe(df, use_container_width=True)
+        else:
+            st.info("No activities recorded yet.")
+
+    elif choice == "👷 Manage Employees":
+        st.subheader("➕ Add New Employee")
         with st.form("add_emp"):
-            emp_username = st.text_input("نام کاربری نیرو")
-            emp_password = st.text_input("رمز عبور نیرو", type="password")
-            add_btn = st.form_submit_button("افزودن")
+            emp_username = st.text_input("Employee Username")
+            emp_password = st.text_input("Password", type="password")
+            add_btn = st.form_submit_button("Add Employee")
             if add_btn:
                 success = add_user(emp_username, emp_password, "employee", st.session_state['user_id'])
                 if success:
-                    st.success(f"✅ کاربر '{emp_username}' افزوده شد")
+                    st.success(f"✅ Employee '{emp_username}' has been added.")
                 else:
-                    st.error("❌ این نام کاربری قبلاً وجود دارد")
+                    st.error("❌ This username already exists.")
 
-        # نمایش نیروها
-        st.markdown("### 📋 لیست نیروها")
+        st.subheader("📋 Employee List")
         employees = get_employees_by_manager(st.session_state['user_id'])
         if employees:
-            st.dataframe(pd.DataFrame(employees, columns=["id", "نام کاربری"]), use_container_width=True)
+            st.dataframe(pd.DataFrame(employees, columns=["ID", "Username"]), use_container_width=True)
         else:
-            st.info("هیچ نیرویی ثبت نشده است")
+            st.info("No employees found.")
 
-        # بخش تعریف Wijk (فعلاً آماده برای نسخه بعد)
-        st.divider()
-        st.markdown("### 🗺️ تعریف Wijk‌ها (در نسخه بعدی فعال می‌شود)")
-
-    else:
-        # وقتی تنظیمات بسته است → فقط گزارش کار
-        st.subheader("📈 گزارش عملکرد نیروها")
-        records = get_all_activities_for_manager(st.session_state['user_id'])
-        if records:
-            df = pd.DataFrame(records, columns=["نیرو", "تاریخ", "Wijk", "Segments", "یادداشت"])
-            st.dataframe(df, use_container_width=True)
-        else:
-            st.info("هیچ فعالیتی ثبت نشده است.")
-
-    st.divider()
-    if st.button("🚪 خروج"):
-        st.session_state.clear()
-        st.rerun()
+    elif choice == "🗺️ Manage Wijk (coming soon)":
+        st.info("📍 This section will allow adding Wijk regions with payment rates.")
 
 # -----------------------------
-# پنل نیرو
+# Employee dashboard
 # -----------------------------
 if 'role' in st.session_state and st.session_state['role'] == 'employee':
-    st.title(f"👷 داشبورد نیرو ({st.session_state['username']})")
+    st.title(f"👷 Employee Dashboard ({st.session_state['username']})")
 
-    st.subheader("🗓️ ثبت فعالیت روزانه")
-    wijk = st.text_input("نام Wijk")
-    segments = st.number_input("تعداد Segment", min_value=0, value=0)
-    note = st.text_area("توضیحات (اختیاری)")
-    if st.button("ثبت فعالیت"):
+    st.subheader("🗓️ Log Daily Activity")
+    wijk = st.text_input("Wijk Name")
+    segments = st.number_input("Number of Segments", min_value=0, value=0)
+    note = st.text_area("Additional Notes (optional)")
+    if st.button("Submit"):
         add_activity(st.session_state['user_id'], wijk, segments, note)
-        st.success("✅ فعالیت ثبت شد")
+        st.success("✅ Activity recorded successfully!")
 
-    st.subheader("📋 تاریخچه فعالیت‌های من")
+    st.subheader("📋 My Activity History")
     data = get_activities_by_user(st.session_state['user_id'])
     if data:
-        df = pd.DataFrame(data, columns=["تاریخ", "Wijk", "Segments", "یادداشت"])
+        df = pd.DataFrame(data, columns=["Date", "Wijk", "Segments", "Note"])
         st.dataframe(df, use_container_width=True)
     else:
-        st.info("هیچ فعالیتی ثبت نشده است.")
+        st.info("No activities yet.")
 
     st.divider()
-    if st.button("🚪 خروج"):
+    if st.button("🚪 Logout"):
         st.session_state.clear()
         st.rerun()
 
 # -----------------------------
-# استایل مخصوص موبایل
+# Mobile-friendly styling
 # -----------------------------
 st.markdown("""
 <style>
