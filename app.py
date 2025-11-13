@@ -240,17 +240,22 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
             )
 
         # ------ Employee Filter ------
-        with col3:
-            st.write("**Select Employee**")
-            employees = df["Employee_raw"].unique().tolist()
-            employee_selection = st.multiselect(
-                "Employee",
-                ["All"] + employees,
-                default=["All"],
-                label_visibility="collapsed"
-            )
+        # ------ Employee Filter ------
+with col3:
+    st.write("**Select Employee**")
+    employee_selection = st.selectbox(
+        "Employee",
+        ["All"] + employees,
+        index=0,
+        label_visibility="collapsed"
+    )
 
-        st.markdown("</div>", unsafe_allow_html=True)
+# Apply Employee Filter
+if employee_selection == "All":
+    selected_employees = employees
+else:
+    selected_employees = [employee_selection]
+
 
         # ----------------------- Apply Filters -----------------------
 
