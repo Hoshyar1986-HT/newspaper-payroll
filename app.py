@@ -44,18 +44,18 @@ def generate_detailed_data():
             if is_sunday:
                 rows.append({
                     "Date_raw": date_str,
-                    "Employee_raw": emp,
-                    "Date": date_str,
-                    "Day": "Sunday",
-                    "Employee": emp,
-                    "On/Off of Work": "Off",
-                    "Wijk(s) Name": "-",
-                    "Wijk Volume/Segment": "-",
-                    "Wijk Price (€)": "-",
-                    "Trip (KM)": km,
-                    "Trip Cost (€)": f"€ {trip_cost:.2f}",
-                    "Day Earn (€)": "€ 0.00",
-                    "Total Earn (€)": "€ 0.00"
+        "Employee_raw": emp,
+        "Date": date_str,
+        "Day": "Sunday",
+        "Employee": "",
+        "On/Off of Work": "Off",
+        "Wijk(s) Name": "",
+        "Wijk Volume/Segment": "",
+        "Wijk Price (€)": "",
+        "Trip (KM)": "",
+        "Trip Cost (€)": "",
+        "Day Earn (€)": "",
+        "Total Earn (€)": ""
                 })
                 continue
 
