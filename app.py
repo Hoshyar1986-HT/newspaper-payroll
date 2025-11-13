@@ -14,13 +14,13 @@ st.set_page_config(
 )
 
 # -----------------------------
-# ایجاد یا اتصال به دیتابیس
+# اتصال به دیتابیس
 # -----------------------------
 conn = sqlite3.connect('payroll.db', check_same_thread=False)
 c = conn.cursor()
 
 # -----------------------------
-# ساخت جداول (اگر وجود نداشتند)
+# ایجاد جداول در صورت عدم وجود
 # -----------------------------
 c.execute('''
 CREATE TABLE IF NOT EXISTS users (
@@ -45,8 +45,41 @@ CREATE TABLE IF NOT EXISTS activities (
 conn.commit()
 
 # -----------------------------
-# توابع کمکی دیتابیس
+# بررسی و افزودن داده‌های اولیه
 # -----------------------------
+def initialize_default_users():
+    c.execute("SELECT COUNT(*) FROM users")
+    count = c.fetchone()[0]
+    if count == 0:
+        # افزودن کارفرما Maryam
+        c.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+                  ("Maryam", "1234", "manager"))
+        conn.commit()
+
+        # گرفتن ID کارفرما برای نیروها
+        c.execute("SELECT id FROM users WHERE username='Maryam'")
+        manager_id = c.fetchone()[0]
+
+        # افزودن نیروها
+        employees = ["Hoshyar", "Hossein", "Masoud"]
+        for emp in employees:
+            c.execute("INSERT INTO users (username, password, role, manager_id) VALUES (?, ?, ?, ?)",
+                      (emp, "1234", "employee", manager_id))
+        conn.commit()
+        print("✅ Default users added.")
+    else:
+        print("ℹ️ Users already exist.")
+
+initialize_default_users()
+
+# -----------------------------
+# توابع دیتابیس
+# -----------------------------
+def check_login(username, password):
+    c.execute('SELECT id, role, manager_id FROM users WHERE username=? AND password=?',
+              (username, password))
+    return c.fetchone()
+
 def add_user(username, password, role, manager_id=None):
     try:
         c.execute('INSERT INTO users (username, password, role, manager_id) VALUES (?, ?, ?, ?)',
@@ -55,11 +88,6 @@ def add_user(username, password, role, manager_id=None):
         return True
     except sqlite3.IntegrityError:
         return False
-
-def check_login(username, password):
-    c.execute('SELECT id, role, manager_id FROM users WHERE username=? AND password=?',
-              (username, password))
-    return c.fetchone()
 
 def add_activity(user_id, wijk, segments, note):
     c.execute('INSERT INTO activities (user_id, date, wijk, segments, note) VALUES (?, ?, ?, ?, ?)',
@@ -111,7 +139,6 @@ if submitted:
 if 'role' in st.session_state and st.session_state['role'] == 'manager':
     st.title(f"📊 داشبورد کارفرما ({st.session_state['username']})")
 
-    # افزودن نیروی جدید
     st.subheader("➕ افزودن نیروی جدید")
     with st.form("add_emp"):
         emp_username = st.text_input("نام کاربری نیرو")
@@ -124,7 +151,6 @@ if 'role' in st.session_state and st.session_state['role'] == 'manager':
             else:
                 st.error("❌ این نام کاربری قبلاً وجود دارد")
 
-    # لیست نیروها
     st.subheader("👷 نیروهای من")
     employees = get_employees_by_manager(st.session_state['user_id'])
     if employees:
@@ -132,7 +158,6 @@ if 'role' in st.session_state and st.session_state['role'] == 'manager':
     else:
         st.info("هیچ نیرویی ثبت نشده است")
 
-    # گزارش فعالیت نیروها
     st.subheader("📋 گزارش فعالیت‌ها")
     records = get_all_activities_for_manager(st.session_state['user_id'])
     if records:
