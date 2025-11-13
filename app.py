@@ -181,7 +181,7 @@ if 'role' in st.session_state and st.session_state['role'] == 'manager':
             st.rerun()
 
     if choice == "⬅️ Back to Dashboard":
-        st.subheader("📈 Employee Activity Report (Nov 1–13, 2025)")
+        st.subheader("📈 Daily Employee Activity Summary")
 
         records = get_all_activities_for_manager(st.session_state['user_id'])
         if not records:
@@ -189,43 +189,52 @@ if 'role' in st.session_state and st.session_state['role'] == 'manager':
         else:
             df = pd.DataFrame(records, columns=["Employee", "Date", "Wijk", "Segments", "Note"])
 
+            # --- Group by Employee + Date ---
+            grouped = (
+                df.groupby(["Employee", "Date"])
+                .agg({
+                    "Wijk": lambda x: ", ".join(sorted(x)),
+                    "Segments": "sum"
+                })
+                .reset_index()
+                .sort_values(["Employee", "Date"])
+            )
+
             # --- Filter Panel ---
             with st.expander("🔍 Filter Options"):
-                employees = df["Employee"].unique().tolist()
+                employees = grouped["Employee"].unique().tolist()
                 selected_employees = st.multiselect("Select Employee(s):", employees, default=employees)
 
-                wijks = df["Wijk"].unique().tolist()
-                selected_wijks = st.multiselect("Select Wijk(s):", wijks, default=wijks)
-
-                min_date = pd.to_datetime(df["Date"]).min().date()
-                max_date = pd.to_datetime(df["Date"]).max().date()
+                min_date = pd.to_datetime(grouped["Date"]).min().date()
+                max_date = pd.to_datetime(grouped["Date"]).max().date()
                 start_date, end_date = st.date_input("Select Date Range:", [min_date, max_date])
 
                 exclude_sundays = st.checkbox("Exclude Sundays", value=True)
 
             # --- Apply Filters ---
-            filtered_df = df.copy()
-            filtered_df = filtered_df[filtered_df["Employee"].isin(selected_employees)]
-            filtered_df = filtered_df[filtered_df["Wijk"].isin(selected_wijks)]
+            filtered_df = grouped.copy()
             filtered_df["Date"] = pd.to_datetime(filtered_df["Date"])
-            filtered_df = filtered_df[(filtered_df["Date"].dt.date >= start_date) &
-                                      (filtered_df["Date"].dt.date <= end_date)]
+            filtered_df = filtered_df[
+                (filtered_df["Employee"].isin(selected_employees)) &
+                (filtered_df["Date"].dt.date >= start_date) &
+                (filtered_df["Date"].dt.date <= end_date)
+            ]
 
             if exclude_sundays:
                 filtered_df["weekday"] = filtered_df["Date"].dt.weekday
                 filtered_df = filtered_df[filtered_df["weekday"] != 6]
                 filtered_df.drop(columns=["weekday"], inplace=True)
 
-            # --- Display filtered results ---
+            # --- Display filtered daily summary ---
             st.dataframe(filtered_df, use_container_width=True)
 
-            # --- Summary Section ---
+            # --- Summary per employee ---
             st.markdown("### 📊 Summary per Employee")
             summary = (
                 filtered_df.groupby("Employee")
                 .agg(
                     total_days=("Date", "nunique"),
-                    total_wijks=("Wijk", "count"),
+                    total_wijks=("Wijk", lambda x: sum(len(i.split(", ")) for i in x)),
                     total_segments=("Segments", "sum")
                 )
                 .reset_index()
@@ -237,7 +246,7 @@ if 'role' in st.session_state and st.session_state['role'] == 'manager':
             st.download_button(
                 label="⬇️ Download Filtered Data (CSV)",
                 data=csv,
-                file_name="filtered_activities.csv",
+                file_name="filtered_daily_summary.csv",
                 mime="text/csv"
             )
 
