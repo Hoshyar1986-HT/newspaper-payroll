@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# 🗞️ Delvero Payroll System - Wijk Rows with Slash Continuation
+# 🗞️ Delvero Payroll System - Fixed Multi-Wijk per Day View
 # ------------------------------------------------------------
 
 import streamlit as st
@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # ------------------------------------------------------------
-# Generate formatted data (Nov 1–13, 2025)
+# Generate corrected data (Nov 1–13, 2025)
 # ------------------------------------------------------------
 def generate_detailed_data():
     start_date = datetime(2025, 11, 1)
@@ -38,6 +38,7 @@ def generate_detailed_data():
             km = trip_km[emp]
             trip_cost = km * 0.16
 
+            # Sundays
             if is_sunday:
                 rows.append({
                     "Date": current_day.strftime("%Y-%m-%d"),
@@ -49,16 +50,14 @@ def generate_detailed_data():
                     "Wijk Price (€)": "-",
                     "Trip (KM)": km,
                     "Trip Cost (€)": f"€ {trip_cost:.2f}",
+                    "Day Earn (€)": "€ 0.00",
                     "Total Earn (€)": "€ 0.00"
                 })
                 continue
 
-            # Determine Wijk(s)
+            # Assign Wijk(s)
             if emp == "Hossein":
-                if current_day.day == 12:
-                    wijks = []
-                else:
-                    wijks = ["Chaam1", "Chaam4", "Galder1"]
+                wijks = [] if current_day.day == 12 else ["Chaam1", "Chaam4", "Galder1"]
             elif emp == "Hoshyar":
                 if current_day.day == 12:
                     wijks = ["Chaam1", "Chaam4", "Galder1"]
@@ -69,6 +68,7 @@ def generate_detailed_data():
             elif emp == "Masoud":
                 wijks = ["Rotterdam1", "Rotterdam2"]
 
+            # If no work
             if not wijks:
                 rows.append({
                     "Date": current_day.strftime("%Y-%m-%d"),
@@ -80,14 +80,17 @@ def generate_detailed_data():
                     "Wijk Price (€)": "-",
                     "Trip (KM)": km,
                     "Trip Cost (€)": f"€ {trip_cost:.2f}",
+                    "Day Earn (€)": "€ 0.00",
                     "Total Earn (€)": "€ 0.00"
                 })
                 continue
 
+            # Calculate daily earnings
             total_wijk_price = sum(price_map.get(segment_map.get(w, 3), 750) for w in wijks)
-            total_earn = (total_wijk_price / 26) + trip_cost
+            day_earn = total_wijk_price / 26
+            total_earn = day_earn + trip_cost
 
-            # Create rows for each wijk
+            # Add all Wijk rows (each visible)
             for j, w in enumerate(wijks):
                 seg = segment_map.get(w, 3)
                 price = price_map.get(seg, 750)
@@ -102,24 +105,27 @@ def generate_detailed_data():
                     "Wijk Price (€)": f"€ {price:.2f}",
                     "Trip (KM)": km if j == 0 else "/",
                     "Trip Cost (€)": f"€ {trip_cost:.2f}" if j == 0 else "/",
+                    "Day Earn (€)": f"€ {day_earn:.2f}" if j == 0 else "/",
                     "Total Earn (€)": f"€ {total_earn:.2f}" if j == 0 else "/"
                 })
 
     return pd.DataFrame(rows)
 
 # ------------------------------------------------------------
-# Row colors
+# Coloring
 # ------------------------------------------------------------
 def color_rows(row):
     if row["On/Off of Work"] == "On":
         return ["background-color: #b6f7b6"] * len(row)
+    elif row["On/Off of Work"] == "Off" and row["Day"] != "/":
+        return ["background-color: #f7b6b6"] * len(row)
     elif row["Day"] == "Sunday":
         return ["background-color: #fff5b6"] * len(row)
     else:
-        return ["background-color: #f7b6b6"] * len(row)
+        return ["background-color: white"] * len(row)
 
 # ------------------------------------------------------------
-# User system
+# User access
 # ------------------------------------------------------------
 users = {
     "Maryam": {"password": "1234", "role": "manager"},
@@ -129,11 +135,10 @@ users = {
 }
 
 # ------------------------------------------------------------
-# Login screen
+# Login
 # ------------------------------------------------------------
 if "logged_in" not in st.session_state:
     st.title("🗞️ Delvero Payroll Login")
-
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
@@ -149,7 +154,7 @@ if "logged_in" not in st.session_state:
             st.error("❌ Invalid username or password")
 
 # ------------------------------------------------------------
-# Main app
+# Main interface
 # ------------------------------------------------------------
 if "logged_in" in st.session_state and st.session_state.logged_in:
     user = st.session_state.username
@@ -166,12 +171,9 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
             st.session_state.clear()
             st.rerun()
 
-    # ----------------------------
-    # Manager Dashboard
-    # ----------------------------
     if role == "manager" and menu == "📊 Dashboard":
         st.title("📊 Manager Dashboard")
-        st.subheader("Daily Wijk Report with Continuation Marks")
+        st.subheader("Multi-Wijk Daily Payroll Report (Nov 1–13, 2025)")
 
         df = generate_detailed_data()
 
@@ -191,7 +193,7 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
         st.dataframe(
             filtered_df.style.apply(color_rows, axis=1),
             use_container_width=True,
-            height=750
+            height=800
         )
 
         st.caption("🟩 On Duty 🟥 Off 🟨 Sunday (Holiday)")
