@@ -1,7 +1,7 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
-from datetime import date
+from datetime import date, datetime, timedelta
 
 # -----------------------------
 # Page setup
@@ -45,22 +45,18 @@ CREATE TABLE IF NOT EXISTS activities (
 conn.commit()
 
 # -----------------------------
-# Initialize default users (Maryam + employees)
+# Initialize default users
 # -----------------------------
 def initialize_default_users():
     c.execute("SELECT COUNT(*) FROM users")
     count = c.fetchone()[0]
     if count == 0:
-        # Add main manager
         c.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
                   ("Maryam", "1234", "manager"))
         conn.commit()
-
-        # Get manager ID
         c.execute("SELECT id FROM users WHERE username='Maryam'")
         manager_id = c.fetchone()[0]
 
-        # Add employees
         employees = ["Hoshyar", "Hossein", "Masoud"]
         for emp in employees:
             c.execute("INSERT INTO users (username, password, role, manager_id) VALUES (?, ?, ?, ?)",
@@ -73,34 +69,22 @@ def initialize_default_users():
 initialize_default_users()
 
 # -----------------------------
-# Database helper functions
+# Helper functions
 # -----------------------------
+def get_user_id(username):
+    c.execute("SELECT id FROM users WHERE username=?", (username,))
+    result = c.fetchone()
+    return result[0] if result else None
+
+def add_activity(user_id, day, wijk):
+    c.execute('INSERT INTO activities (user_id, date, wijk, segments, note) VALUES (?, ?, ?, ?, ?)',
+              (user_id, day, wijk, 1, ""))
+    conn.commit()
+
 def check_login(username, password):
     c.execute('SELECT id, role, manager_id FROM users WHERE username=? AND password=?',
               (username, password))
     return c.fetchone()
-
-def add_user(username, password, role, manager_id=None):
-    try:
-        c.execute('INSERT INTO users (username, password, role, manager_id) VALUES (?, ?, ?, ?)',
-                  (username, password, role, manager_id))
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False
-
-def add_activity(user_id, wijk, segments, note):
-    c.execute('INSERT INTO activities (user_id, date, wijk, segments, note) VALUES (?, ?, ?, ?, ?)',
-              (user_id, str(date.today()), wijk, segments, note))
-    conn.commit()
-
-def get_activities_by_user(user_id):
-    c.execute('SELECT date, wijk, segments, note FROM activities WHERE user_id=? ORDER BY date DESC', (user_id,))
-    return c.fetchall()
-
-def get_employees_by_manager(manager_id):
-    c.execute('SELECT id, username FROM users WHERE manager_id=?', (manager_id,))
-    return c.fetchall()
 
 def get_all_activities_for_manager(manager_id):
     c.execute('''
@@ -108,12 +92,59 @@ def get_all_activities_for_manager(manager_id):
         FROM activities a
         JOIN users u ON a.user_id = u.id
         WHERE u.manager_id=?
-        ORDER BY a.date DESC
+        ORDER BY date(a.date) ASC
     ''', (manager_id,))
     return c.fetchall()
 
 # -----------------------------
-# Login page (only if not logged in)
+# Add sample data (1–13 Nov 2025)
+# -----------------------------
+def seed_sample_data():
+    c.execute("SELECT COUNT(*) FROM activities")
+    if c.fetchone()[0] > 0:
+        print("ℹ️ Sample data already exists.")
+        return
+
+    # Get employee IDs
+    hossein_id = get_user_id("Hossein")
+    hoshyar_id = get_user_id("Hoshyar")
+    masoud_id = get_user_id("Masoud")
+
+    start_date = datetime(2025, 11, 1)
+    end_date = datetime(2025, 11, 13)
+
+    for i in range((end_date - start_date).days + 1):
+        current_day = start_date + timedelta(days=i)
+        weekday = current_day.weekday()  # 0=Mon ... 6=Sun
+
+        # Skip Sundays
+        if weekday == 6:
+            continue
+
+        day_str = current_day.strftime("%Y-%m-%d")
+
+        # Hossein works every day except 12th (on leave)
+        if current_day.day != 12:
+            for wijk in ["Chaam1", "Chaam4", "Galder1"]:
+                add_activity(hossein_id, day_str, wijk)
+
+        # Hoshyar works only 12th and 13th
+        if current_day.day == 12:
+            for wijk in ["Chaam1", "Chaam4", "Galder1"]:
+                add_activity(hoshyar_id, day_str, wijk)
+        elif current_day.day == 13:
+            add_activity(hoshyar_id, day_str, "Lexmond2")
+
+        # Masoud works every day (except Sundays)
+        for wijk in ["Rotterdam1", "Rotterdam2"]:
+            add_activity(masoud_id, day_str, wijk)
+
+    print("✅ Sample activities seeded for Nov 1–13, 2025.")
+
+seed_sample_data()
+
+# -----------------------------
+# Login page
 # -----------------------------
 if "role" not in st.session_state:
     st.title("🗞️ Delvero Payroll Login")
@@ -135,15 +166,14 @@ if "role" not in st.session_state:
             st.error("❌ Invalid username or password")
 
 # -----------------------------
-# Manager dashboard with sidebar menu
+# Manager Dashboard
 # -----------------------------
 if 'role' in st.session_state and st.session_state['role'] == 'manager':
     st.title(f"📊 Manager Dashboard ({st.session_state['username']})")
 
-    # Sidebar menu
     with st.sidebar:
         st.header("⚙️ Settings Menu")
-        choice = st.radio("Choose an option:", [
+        choice = st.radio("Select an option:", [
             "⬅️ Back to Dashboard",
             "👷 Manage Employees",
             "🗺️ Manage Wijk (coming soon)"
@@ -154,9 +184,8 @@ if 'role' in st.session_state and st.session_state['role'] == 'manager':
             st.session_state.clear()
             st.rerun()
 
-    # Dashboard main content
     if choice == "⬅️ Back to Dashboard":
-        st.subheader("📈 Employee Work Report")
+        st.subheader("📈 Employee Activity Report (Nov 1–13, 2025)")
         records = get_all_activities_for_manager(st.session_state['user_id'])
         if records:
             df = pd.DataFrame(records, columns=["Employee", "Date", "Wijk", "Segments", "Note"])
@@ -165,30 +194,14 @@ if 'role' in st.session_state and st.session_state['role'] == 'manager':
             st.info("No activities recorded yet.")
 
     elif choice == "👷 Manage Employees":
-        st.subheader("➕ Add New Employee")
-        with st.form("add_emp"):
-            emp_username = st.text_input("Employee Username")
-            emp_password = st.text_input("Password", type="password")
-            add_btn = st.form_submit_button("Add Employee")
-            if add_btn:
-                success = add_user(emp_username, emp_password, "employee", st.session_state['user_id'])
-                if success:
-                    st.success(f"✅ Employee '{emp_username}' has been added.")
-                else:
-                    st.error("❌ This username already exists.")
-
-        st.subheader("📋 Employee List")
-        employees = get_employees_by_manager(st.session_state['user_id'])
-        if employees:
-            st.dataframe(pd.DataFrame(employees, columns=["ID", "Username"]), use_container_width=True)
-        else:
-            st.info("No employees found.")
+        st.subheader("Employee Management (static data for now)")
+        st.info("Employee management options will be available soon.")
 
     elif choice == "🗺️ Manage Wijk (coming soon)":
-        st.info("📍 This section will allow adding Wijk regions with payment rates.")
+        st.info("Wijk rate management will be implemented in the next version.")
 
 # -----------------------------
-# Employee dashboard
+# Employee Dashboard
 # -----------------------------
 if 'role' in st.session_state and st.session_state['role'] == 'employee':
     st.title(f"👷 Employee Dashboard ({st.session_state['username']})")
@@ -198,13 +211,14 @@ if 'role' in st.session_state and st.session_state['role'] == 'employee':
     segments = st.number_input("Number of Segments", min_value=0, value=0)
     note = st.text_area("Additional Notes (optional)")
     if st.button("Submit"):
-        add_activity(st.session_state['user_id'], wijk, segments, note)
+        add_activity(st.session_state['user_id'], str(date.today()), wijk)
         st.success("✅ Activity recorded successfully!")
 
     st.subheader("📋 My Activity History")
-    data = get_activities_by_user(st.session_state['user_id'])
+    c.execute('SELECT date, wijk FROM activities WHERE user_id=? ORDER BY date DESC', (st.session_state['user_id'],))
+    data = c.fetchall()
     if data:
-        df = pd.DataFrame(data, columns=["Date", "Wijk", "Segments", "Note"])
+        df = pd.DataFrame(data, columns=["Date", "Wijk"])
         st.dataframe(df, use_container_width=True)
     else:
         st.info("No activities yet.")
@@ -215,7 +229,7 @@ if 'role' in st.session_state and st.session_state['role'] == 'employee':
         st.rerun()
 
 # -----------------------------
-# Mobile-friendly styling
+# Styling
 # -----------------------------
 st.markdown("""
 <style>
