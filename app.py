@@ -1,73 +1,189 @@
 import streamlit as st
+import sqlite3
 import pandas as pd
 from datetime import date
 
-st.set_page_config(page_title="Newspaper Payroll", page_icon="🗞️", layout="wide")
-st.title("🗞️ Newspaper Payroll – Data Entry")
+# -----------------------------
+# تنظیمات صفحه
+# -----------------------------
+st.set_page_config(
+    page_title="Delvero Payroll",
+    page_icon="🗞️",
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
 
+# -----------------------------
+# ایجاد یا اتصال به دیتابیس
+# -----------------------------
+conn = sqlite3.connect('payroll.db', check_same_thread=False)
+c = conn.cursor()
+
+# -----------------------------
+# ساخت جداول (اگر وجود نداشتند)
+# -----------------------------
+c.execute('''
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    password TEXT,
+    role TEXT,
+    manager_id INTEGER
+)
+''')
+
+c.execute('''
+CREATE TABLE IF NOT EXISTS activities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    date TEXT,
+    wijk TEXT,
+    segments INTEGER,
+    note TEXT
+)
+''')
+conn.commit()
+
+# -----------------------------
+# توابع کمکی دیتابیس
+# -----------------------------
+def add_user(username, password, role, manager_id=None):
+    try:
+        c.execute('INSERT INTO users (username, password, role, manager_id) VALUES (?, ?, ?, ?)',
+                  (username, password, role, manager_id))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+
+def check_login(username, password):
+    c.execute('SELECT id, role, manager_id FROM users WHERE username=? AND password=?',
+              (username, password))
+    return c.fetchone()
+
+def add_activity(user_id, wijk, segments, note):
+    c.execute('INSERT INTO activities (user_id, date, wijk, segments, note) VALUES (?, ?, ?, ?, ?)',
+              (user_id, str(date.today()), wijk, segments, note))
+    conn.commit()
+
+def get_activities_by_user(user_id):
+    c.execute('SELECT date, wijk, segments, note FROM activities WHERE user_id=? ORDER BY date DESC', (user_id,))
+    return c.fetchall()
+
+def get_employees_by_manager(manager_id):
+    c.execute('SELECT id, username FROM users WHERE manager_id=?', (manager_id,))
+    return c.fetchall()
+
+def get_all_activities_for_manager(manager_id):
+    c.execute('''
+        SELECT u.username, a.date, a.wijk, a.segments, a.note
+        FROM activities a
+        JOIN users u ON a.user_id = u.id
+        WHERE u.manager_id=?
+        ORDER BY a.date DESC
+    ''', (manager_id,))
+    return c.fetchall()
+
+# -----------------------------
+# صفحه ورود
+# -----------------------------
+st.title("🗞️ Delvero Payroll Login")
+
+with st.form("login"):
+    username = st.text_input("نام کاربری")
+    password = st.text_input("رمز عبور", type="password")
+    submitted = st.form_submit_button("ورود")
+
+if submitted:
+    user = check_login(username, password)
+    if user:
+        st.session_state['user_id'] = user[0]
+        st.session_state['role'] = user[1]
+        st.session_state['manager_id'] = user[2]
+        st.session_state['username'] = username
+        st.experimental_rerun()
+    else:
+        st.error("❌ نام کاربری یا رمز عبور اشتباه است")
+
+# -----------------------------
+# پنل کارفرما
+# -----------------------------
+if 'role' in st.session_state and st.session_state['role'] == 'manager':
+    st.title(f"📊 داشبورد کارفرما ({st.session_state['username']})")
+
+    # افزودن نیروی جدید
+    st.subheader("➕ افزودن نیروی جدید")
+    with st.form("add_emp"):
+        emp_username = st.text_input("نام کاربری نیرو")
+        emp_password = st.text_input("رمز عبور نیرو", type="password")
+        add_btn = st.form_submit_button("افزودن")
+        if add_btn:
+            success = add_user(emp_username, emp_password, "employee", st.session_state['user_id'])
+            if success:
+                st.success(f"✅ کاربر '{emp_username}' افزوده شد")
+            else:
+                st.error("❌ این نام کاربری قبلاً وجود دارد")
+
+    # لیست نیروها
+    st.subheader("👷 نیروهای من")
+    employees = get_employees_by_manager(st.session_state['user_id'])
+    if employees:
+        st.table(pd.DataFrame(employees, columns=["id", "نام کاربری"]))
+    else:
+        st.info("هیچ نیرویی ثبت نشده است")
+
+    # گزارش فعالیت نیروها
+    st.subheader("📋 گزارش فعالیت‌ها")
+    records = get_all_activities_for_manager(st.session_state['user_id'])
+    if records:
+        df = pd.DataFrame(records, columns=["نیرو", "تاریخ", "Wijk", "Segments", "یادداشت"])
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.info("هنوز هیچ فعالیتی ثبت نشده است.")
+
+    if st.button("🚪 خروج"):
+        st.session_state.clear()
+        st.experimental_rerun()
+
+# -----------------------------
+# پنل نیرو
+# -----------------------------
+if 'role' in st.session_state and st.session_state['role'] == 'employee':
+    st.title(f"👷 داشبورد نیرو ({st.session_state['username']})")
+
+    st.subheader("🗓️ ثبت فعالیت روزانه")
+    wijk = st.text_input("نام Wijk")
+    segments = st.number_input("تعداد Segment", min_value=0, value=0)
+    note = st.text_area("توضیحات (اختیاری)")
+    if st.button("ثبت فعالیت"):
+        add_activity(st.session_state['user_id'], wijk, segments, note)
+        st.success("✅ فعالیت ثبت شد")
+
+    st.subheader("📋 تاریخچه فعالیت‌های من")
+    data = get_activities_by_user(st.session_state['user_id'])
+    if data:
+        df = pd.DataFrame(data, columns=["تاریخ", "Wijk", "Segments", "یادداشت"])
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.info("هیچ فعالیتی ثبت نشده است.")
+
+    if st.button("🚪 خروج"):
+        st.session_state.clear()
+        st.experimental_rerun()
+
+# -----------------------------
+# استایل مخصوص موبایل
+# -----------------------------
 st.markdown("""
-در این برنامه می‌توانید اطلاعات نیروها، ویک‌ها، برنامه کاری و تعطیلات را وارد کنید.
-سپس با زدن دکمه **محاسبه حقوق**، حقوق هر نیرو بر اساس روزهای کاری محاسبه می‌شود.
-""")
-
-# --- Form 1: Users ---
-st.header("1️⃣ کاربران (Users)")
-st.markdown("برای افزودن یا حذف نیرو، جدول زیر را ویرایش کنید:")
-
-users_df = st.data_editor(
-    pd.DataFrame([{"user_id": "USER1", "name": "Ali"}]),
-    num_rows="dynamic",
-    use_container_width=True,
-)
-
-# --- Form 2: Wijks ---
-st.header("2️⃣ ویک‌ها (Wijks)")
-st.markdown("هر ویک می‌تواند نرخ ثابت یا نرخ بر اساس سگمنت داشته باشد:")
-
-wijk_df = st.data_editor(
-    pd.DataFrame([
-        {"wijk": "Rijen3", "price_type": "flat", "flat_daily_price": 50, "segments": 4, "segment_prices": ""},
-        {"wijk": "Baarle 5", "price_type": "by_segment", "flat_daily_price": "", "segments": 3, "segment_prices": "[12,10,8]"},
-    ]),
-    num_rows="dynamic",
-    use_container_width=True,
-)
-
-# --- Form 3: Schedule ---
-st.header("3️⃣ برنامه کاری (Schedule)")
-st.markdown("برای هر نیرو بازه تاریخی و ویک مربوطه را وارد کنید:")
-
-schedule_df = st.data_editor(
-    pd.DataFrame([
-        {"user_id": "USER1", "start_date": "2025-11-06", "end_date": "2025-11-10", "wijk": "Rijen3"},
-        {"user_id": "USER1", "start_date": "2025-11-11", "end_date": "2025-11-23", "wijk": "Baarle 5"},
-    ]),
-    num_rows="dynamic",
-    use_container_width=True,
-)
-
-# --- Form 4: Holidays ---
-st.header("4️⃣ تعطیلات (Holidays)")
-st.markdown("در صورت وجود تعطیلات رسمی، تاریخ آن‌ها را اضافه کنید:")
-
-holidays_df = st.data_editor(
-    pd.DataFrame([{"date": ""}]),
-    num_rows="dynamic",
-    use_container_width=True,
-)
-
-# --- Form 5: Month/Year ---
-st.header("5️⃣ انتخاب ماه و سال محاسبه")
-col1, col2 = st.columns(2)
-with col1:
-    year = st.number_input("سال", min_value=2020, max_value=2100, value=2025)
-with col2:
-    month = st.number_input("ماه", min_value=1, max_value=12, value=11)
-
-st.markdown("---")
-if st.button("📊 محاسبه حقوق (فعلاً آزمایشی)"):
-    st.success(f"داده‌ها ثبت شدند برای ماه {year}-{month:02d}. در مرحله بعد محاسبه افزوده می‌شود.")
-    st.write("**Users:**", users_df)
-    st.write("**Wijks:**", wijk_df)
-    st.write("**Schedule:**", schedule_df)
-    st.write("**Holidays:**", holidays_df)
+<style>
+html, body, [class*="css"] {
+    font-size: 16px !important;
+}
+.stButton>button {
+    width: 100%;
+    font-size: 18px;
+    padding: 0.75em 0;
+    border-radius: 12px;
+}
+</style>
+""", unsafe_allow_html=True)
