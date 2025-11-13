@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# 🗞️ Delvero Payroll System - Compact Wijk Rows (Blank Repeats)
+# 🗞️ Delvero Payroll System - Wijk Rows with Slash Continuation
 # ------------------------------------------------------------
 
 import streamlit as st
@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # ------------------------------------------------------------
-# Generate compact daily data (Nov 1–13, 2025)
+# Generate formatted data (Nov 1–13, 2025)
 # ------------------------------------------------------------
 def generate_detailed_data():
     start_date = datetime(2025, 11, 1)
@@ -25,7 +25,6 @@ def generate_detailed_data():
 
     employees = ["Hossein", "Hoshyar", "Masoud"]
 
-    # Segment mapping, prices, trips
     segment_map = {"Chaam1": 3, "Chaam4": 4, "Galder1": 2}
     price_map = {2: 650, 3: 750, 4: 850}
     trip_km = {"Hossein": 120, "Hoshyar": 45, "Masoud": 60}
@@ -39,7 +38,6 @@ def generate_detailed_data():
             km = trip_km[emp]
             trip_cost = km * 0.16
 
-            # Off on Sundays
             if is_sunday:
                 rows.append({
                     "Date": current_day.strftime("%Y-%m-%d"),
@@ -51,11 +49,11 @@ def generate_detailed_data():
                     "Wijk Price (€)": "-",
                     "Trip (KM)": km,
                     "Trip Cost (€)": f"€ {trip_cost:.2f}",
-                    "Day Earn (€)": "€ 0.00"
+                    "Total Earn (€)": "€ 0.00"
                 })
                 continue
 
-            # Determine which Wijk(s) this employee worked on
+            # Determine Wijk(s)
             if emp == "Hossein":
                 if current_day.day == 12:
                     wijks = []
@@ -82,29 +80,29 @@ def generate_detailed_data():
                     "Wijk Price (€)": "-",
                     "Trip (KM)": km,
                     "Trip Cost (€)": f"€ {trip_cost:.2f}",
-                    "Day Earn (€)": "€ 0.00"
+                    "Total Earn (€)": "€ 0.00"
                 })
                 continue
 
-            # Calculate prices
             total_wijk_price = sum(price_map.get(segment_map.get(w, 3), 750) for w in wijks)
-            day_earn = (total_wijk_price / 26) + trip_cost
+            total_earn = (total_wijk_price / 26) + trip_cost
 
+            # Create rows for each wijk
             for j, w in enumerate(wijks):
                 seg = segment_map.get(w, 3)
                 price = price_map.get(seg, 750)
 
                 rows.append({
-                    "Date": current_day.strftime("%Y-%m-%d") if j == 0 else "",
-                    "Day": weekday if j == 0 else "",
-                    "Employee": emp if j == 0 else "",
-                    "On/Off of Work": "On" if j == 0 else "",
+                    "Date": current_day.strftime("%Y-%m-%d") if j == 0 else "/",
+                    "Day": weekday if j == 0 else "/",
+                    "Employee": emp if j == 0 else "/",
+                    "On/Off of Work": "On" if j == 0 else "/",
                     "Wijk(s) Name": w,
                     "Wijk Volume/Segment": seg,
                     "Wijk Price (€)": f"€ {price:.2f}",
-                    "Trip (KM)": km if j == 0 else "",
-                    "Trip Cost (€)": f"€ {trip_cost:.2f}" if j == 0 else "",
-                    "Day Earn (€)": f"€ {day_earn:.2f}" if j == 0 else ""
+                    "Trip (KM)": km if j == 0 else "/",
+                    "Trip Cost (€)": f"€ {trip_cost:.2f}" if j == 0 else "/",
+                    "Total Earn (€)": f"€ {total_earn:.2f}" if j == 0 else "/"
                 })
 
     return pd.DataFrame(rows)
@@ -121,7 +119,7 @@ def color_rows(row):
         return ["background-color: #f7b6b6"] * len(row)
 
 # ------------------------------------------------------------
-# Users
+# User system
 # ------------------------------------------------------------
 users = {
     "Maryam": {"password": "1234", "role": "manager"},
@@ -131,7 +129,7 @@ users = {
 }
 
 # ------------------------------------------------------------
-# Login
+# Login screen
 # ------------------------------------------------------------
 if "logged_in" not in st.session_state:
     st.title("🗞️ Delvero Payroll Login")
@@ -151,7 +149,7 @@ if "logged_in" not in st.session_state:
             st.error("❌ Invalid username or password")
 
 # ------------------------------------------------------------
-# Main Interface
+# Main app
 # ------------------------------------------------------------
 if "logged_in" in st.session_state and st.session_state.logged_in:
     user = st.session_state.username
@@ -173,21 +171,21 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
     # ----------------------------
     if role == "manager" and menu == "📊 Dashboard":
         st.title("📊 Manager Dashboard")
-        st.subheader("Compact Daily Report (Nov 1–13, 2025)")
+        st.subheader("Daily Wijk Report with Continuation Marks")
 
         df = generate_detailed_data()
 
         with st.expander("🔍 Filter Options"):
             employees = df["Employee"].unique().tolist()
             selected_employees = st.multiselect("Select Employee(s):", employees, default=employees)
-            min_date = pd.to_datetime(df["Date"].replace("", pd.NA).dropna()).min().date()
-            max_date = pd.to_datetime(df["Date"].replace("", pd.NA).dropna()).max().date()
+            min_date = pd.to_datetime(df["Date"].replace("/", pd.NA).dropna()).min().date()
+            max_date = pd.to_datetime(df["Date"].replace("/", pd.NA).dropna()).max().date()
             start_date, end_date = st.date_input("Select Date Range:", [min_date, max_date])
 
         filtered_df = df[
             (df["Employee"].isin(selected_employees)) &
-            (pd.to_datetime(df["Date"].replace("", pd.NA), errors="coerce").dt.date >= start_date) &
-            (pd.to_datetime(df["Date"].replace("", pd.NA), errors="coerce").dt.date <= end_date)
+            (pd.to_datetime(df["Date"].replace("/", pd.NA), errors="coerce").dt.date >= start_date) &
+            (pd.to_datetime(df["Date"].replace("/", pd.NA), errors="coerce").dt.date <= end_date)
         ]
 
         st.dataframe(
