@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# 🗞️ Delvero Payroll System - Final Professional Version
+# 🗞️ Delvero Payroll System - Final Professional Version (Single Employee Filter)
 # ------------------------------------------------------------
 
 import streamlit as st
@@ -224,6 +224,7 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
             month_option = st.selectbox(
                 "Month",
                 ["Whole Range", "November 2025"],
+                index=0,
                 label_visibility="collapsed"
             )
 
@@ -239,23 +240,18 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
                 label_visibility="collapsed"
             )
 
-        # ------ Employee Filter ------
-        # ------ Employee Filter ------
-with col3:
-    st.write("**Select Employee**")
-    employee_selection = st.selectbox(
-        "Employee",
-        ["All"] + employees,
-        index=0,
-        label_visibility="collapsed"
-    )
+        # ------ Employee Filter (Single Select) ------
+        with col3:
+            st.write("**Select Employee**")
+            employees = df["Employee_raw"].unique().tolist()
+            employee_selection = st.selectbox(
+                "Employee",
+                ["All"] + employees,
+                index=0,
+                label_visibility="collapsed"
+            )
 
-# Apply Employee Filter
-if employee_selection == "All":
-    selected_employees = employees
-else:
-    selected_employees = [employee_selection]
-
+        st.markdown("</div>", unsafe_allow_html=True)
 
         # ----------------------- Apply Filters -----------------------
 
@@ -263,10 +259,10 @@ else:
             start_date = datetime(2025, 11, 1).date()
             end_date = datetime(2025, 11, 30).date()
 
-        if "All" in employee_selection:
+        if employee_selection == "All":
             selected_employees = employees
         else:
-            selected_employees = employee_selection
+            selected_employees = [employee_selection]
 
         mask = (
             df["Employee_raw"].isin(selected_employees) &
