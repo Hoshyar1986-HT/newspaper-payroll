@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# 🗞️ Delvero Payroll System - Each Wijk Visible per Row
+# 🗞️ Delvero Payroll System - Compact Wijk Rows (Blank Repeats)
 # ------------------------------------------------------------
 
 import streamlit as st
@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # ------------------------------------------------------------
-# Generate fully detailed data (Nov 1–13, 2025)
+# Generate compact daily data (Nov 1–13, 2025)
 # ------------------------------------------------------------
 def generate_detailed_data():
     start_date = datetime(2025, 11, 1)
@@ -25,6 +25,7 @@ def generate_detailed_data():
 
     employees = ["Hossein", "Hoshyar", "Masoud"]
 
+    # Segment mapping, prices, trips
     segment_map = {"Chaam1": 3, "Chaam4": 4, "Galder1": 2}
     price_map = {2: 650, 3: 750, 4: 850}
     trip_km = {"Hossein": 120, "Hoshyar": 45, "Masoud": 60}
@@ -38,6 +39,7 @@ def generate_detailed_data():
             km = trip_km[emp]
             trip_cost = km * 0.16
 
+            # Off on Sundays
             if is_sunday:
                 rows.append({
                     "Date": current_day.strftime("%Y-%m-%d"),
@@ -53,7 +55,7 @@ def generate_detailed_data():
                 })
                 continue
 
-            # Work assignment
+            # Determine which Wijk(s) this employee worked on
             if emp == "Hossein":
                 if current_day.day == 12:
                     wijks = []
@@ -84,30 +86,31 @@ def generate_detailed_data():
                 })
                 continue
 
-            # Calculate
+            # Calculate prices
             total_wijk_price = sum(price_map.get(segment_map.get(w, 3), 750) for w in wijks)
             day_earn = (total_wijk_price / 26) + trip_cost
 
-            for w in wijks:
+            for j, w in enumerate(wijks):
                 seg = segment_map.get(w, 3)
                 price = price_map.get(seg, 750)
+
                 rows.append({
-                    "Date": current_day.strftime("%Y-%m-%d"),
-                    "Day": weekday,
-                    "Employee": emp,
-                    "On/Off of Work": "On",
+                    "Date": current_day.strftime("%Y-%m-%d") if j == 0 else "",
+                    "Day": weekday if j == 0 else "",
+                    "Employee": emp if j == 0 else "",
+                    "On/Off of Work": "On" if j == 0 else "",
                     "Wijk(s) Name": w,
                     "Wijk Volume/Segment": seg,
                     "Wijk Price (€)": f"€ {price:.2f}",
-                    "Trip (KM)": km,
-                    "Trip Cost (€)": f"€ {trip_cost:.2f}",
-                    "Day Earn (€)": f"€ {day_earn:.2f}"
+                    "Trip (KM)": km if j == 0 else "",
+                    "Trip Cost (€)": f"€ {trip_cost:.2f}" if j == 0 else "",
+                    "Day Earn (€)": f"€ {day_earn:.2f}" if j == 0 else ""
                 })
 
     return pd.DataFrame(rows)
 
 # ------------------------------------------------------------
-# Styling for rows
+# Row colors
 # ------------------------------------------------------------
 def color_rows(row):
     if row["On/Off of Work"] == "On":
@@ -118,7 +121,7 @@ def color_rows(row):
         return ["background-color: #f7b6b6"] * len(row)
 
 # ------------------------------------------------------------
-# Login System
+# Users
 # ------------------------------------------------------------
 users = {
     "Maryam": {"password": "1234", "role": "manager"},
@@ -127,6 +130,9 @@ users = {
     "Masoud": {"password": "1234", "role": "employee"}
 }
 
+# ------------------------------------------------------------
+# Login
+# ------------------------------------------------------------
 if "logged_in" not in st.session_state:
     st.title("🗞️ Delvero Payroll Login")
 
@@ -167,21 +173,21 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
     # ----------------------------
     if role == "manager" and menu == "📊 Dashboard":
         st.title("📊 Manager Dashboard")
-        st.subheader("Daily Wijk-level Report (Nov 1–13, 2025)")
+        st.subheader("Compact Daily Report (Nov 1–13, 2025)")
 
         df = generate_detailed_data()
 
         with st.expander("🔍 Filter Options"):
             employees = df["Employee"].unique().tolist()
             selected_employees = st.multiselect("Select Employee(s):", employees, default=employees)
-            min_date = pd.to_datetime(df["Date"]).min().date()
-            max_date = pd.to_datetime(df["Date"]).max().date()
+            min_date = pd.to_datetime(df["Date"].replace("", pd.NA).dropna()).min().date()
+            max_date = pd.to_datetime(df["Date"].replace("", pd.NA).dropna()).max().date()
             start_date, end_date = st.date_input("Select Date Range:", [min_date, max_date])
 
         filtered_df = df[
             (df["Employee"].isin(selected_employees)) &
-            (pd.to_datetime(df["Date"]).dt.date >= start_date) &
-            (pd.to_datetime(df["Date"]).dt.date <= end_date)
+            (pd.to_datetime(df["Date"].replace("", pd.NA), errors="coerce").dt.date >= start_date) &
+            (pd.to_datetime(df["Date"].replace("", pd.NA), errors="coerce").dt.date <= end_date)
         ]
 
         st.dataframe(
