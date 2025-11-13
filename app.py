@@ -129,7 +129,7 @@ if submitted:
         st.session_state['role'] = user[1]
         st.session_state['manager_id'] = user[2]
         st.session_state['username'] = username
-        st.experimental_rerun()
+        st.rerun()
     else:
         st.error("❌ نام کاربری یا رمز عبور اشتباه است")
 
@@ -168,7 +168,7 @@ if 'role' in st.session_state and st.session_state['role'] == 'manager':
 
     if st.button("🚪 خروج"):
         st.session_state.clear()
-        st.experimental_rerun()
+        st.rerun()
 
 # -----------------------------
 # پنل نیرو
@@ -194,7 +194,7 @@ if 'role' in st.session_state and st.session_state['role'] == 'employee':
 
     if st.button("🚪 خروج"):
         st.session_state.clear()
-        st.experimental_rerun()
+        st.rerun()
 
 # -----------------------------
 # استایل مخصوص موبایل
