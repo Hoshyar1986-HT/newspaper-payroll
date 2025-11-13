@@ -127,17 +127,17 @@ def generate_detailed_data():
 # Row colors
 # ------------------------------------------------------------
 def color_rows(row):
-    # We look at the display "On/Off of Work"
-    status = row["On/Off of Work"]
-    day = row["Day"]
-    if status == "On":
-        return ["background-color: #b6f7b6"] * len(row)  # green
-    if status == "Off" and day != "/":
-        # Sunday or off-day with real row
-        if day == "Sunday":
-            return ["background-color: #fff5b6"] * len(row)  # yellow
-        return ["background-color: #f7b6b6"] * len(row)      # red
+    # Sunday rows (regardless of wijk)
+    if row["Day"] == "Sunday":
+        return ["background-color: #ff9999"] * len(row)  # red
+    
+    # Off rows that are NOT Sunday
+    if row["On/Off of Work"] == "Off":
+        return ["background-color: #ffcc99"] * len(row)  # orange
+
+    # All other rows (On days)
     return ["background-color: white"] * len(row)
+
 
 # ------------------------------------------------------------
 # User login data
