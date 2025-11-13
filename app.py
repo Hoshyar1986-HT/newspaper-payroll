@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# 🗞️ Delvero Payroll System - Realistic Daily Table (with €)
+# 🗞️ Delvero Payroll System - Split Wijk Rows View (with €)
 # ------------------------------------------------------------
 
 import streamlit as st
@@ -17,18 +17,18 @@ st.set_page_config(
 )
 
 # ------------------------------------------------------------
-# Generate realistic daily data (Nov 1–13, 2025)
+# Generate realistic detailed data (Nov 1–13, 2025)
 # ------------------------------------------------------------
-def generate_realistic_data():
+def generate_detailed_data():
     start_date = datetime(2025, 11, 1)
     end_date = datetime(2025, 11, 13)
-    all_rows = []
+    rows = []
 
     employees = ["Hossein", "Hoshyar", "Masoud"]
 
-    # Wijk segment mapping
+    # Segment mapping and rates
     segment_map = {"Chaam1": 3, "Chaam4": 4, "Galder1": 2}
-    # Trip km per person
+    price_map = {2: 650, 3: 750, 4: 850}
     trip_km = {"Hossein": 120, "Hoshyar": 45, "Masoud": 60}
 
     for i in range((end_date - start_date).days + 1):
@@ -37,93 +37,108 @@ def generate_realistic_data():
         is_sunday = (current_day.weekday() == 6)
 
         for emp in employees:
+            km = trip_km[emp]
+            trip_cost = km * 0.16
+
             if is_sunday:
-                status = "Off"
-                wijks = ""
-            else:
-                # Hossein
-                if emp == "Hossein":
-                    if current_day.day == 12:
-                        status = "Off"
-                        wijks = ""
-                    else:
-                        status = "On"
-                        wijks = "Chaam1, Chaam4, Galder1"
+                rows.append({
+                    "Date": current_day.strftime("%Y-%m-%d"),
+                    "Day": weekday,
+                    "Employee": emp,
+                    "On/Off of Work": "Off",
+                    "Wijk(s) Name": "",
+                    "Wijk Volume/Segment": "",
+                    "Wijk Price (€)": "",
+                    "Trip (KM)": km,
+                    "Trip Cost (€)": f"€ {trip_cost:.2f}",
+                    "Day Earn (€)": "€ 0.00"
+                })
+                continue
 
-                # Hoshyar
-                elif emp == "Hoshyar":
-                    if current_day.day == 12:
-                        status = "On"
-                        wijks = "Chaam1, Chaam4, Galder1"
-                    elif current_day.day == 13:
-                        status = "On"
-                        wijks = "Lexmond2"
-                    else:
-                        status = "Off"
-                        wijks = ""
+            # Hossein
+            if emp == "Hossein":
+                if current_day.day == 12:
+                    rows.append({
+                        "Date": current_day.strftime("%Y-%m-%d"),
+                        "Day": weekday,
+                        "Employee": emp,
+                        "On/Off of Work": "Off",
+                        "Wijk(s) Name": "",
+                        "Wijk Volume/Segment": "",
+                        "Wijk Price (€)": "",
+                        "Trip (KM)": km,
+                        "Trip Cost (€)": f"€ {trip_cost:.2f}",
+                        "Day Earn (€)": "€ 0.00"
+                    })
+                    continue
+                else:
+                    wijks = ["Chaam1", "Chaam4", "Galder1"]
 
-                # Masoud
-                elif emp == "Masoud":
-                    status = "On" if not is_sunday else "Off"
-                    wijks = "Rotterdam1, Rotterdam2" if not is_sunday else ""
+            # Hoshyar
+            elif emp == "Hoshyar":
+                if current_day.day == 12:
+                    wijks = ["Chaam1", "Chaam4", "Galder1"]
+                elif current_day.day == 13:
+                    wijks = ["Lexmond2"]
+                else:
+                    rows.append({
+                        "Date": current_day.strftime("%Y-%m-%d"),
+                        "Day": weekday,
+                        "Employee": emp,
+                        "On/Off of Work": "Off",
+                        "Wijk(s) Name": "",
+                        "Wijk Volume/Segment": "",
+                        "Wijk Price (€)": "",
+                        "Trip (KM)": km,
+                        "Trip Cost (€)": f"€ {trip_cost:.2f}",
+                        "Day Earn (€)": "€ 0.00"
+                    })
+                    continue
 
-            # Calculate values
-            if status == "On":
-                wijk_list = [w.strip() for w in wijks.split(",") if w.strip()]
-                volumes = []
-                prices = []
-                for w in wijk_list:
-                    seg = segment_map.get(w, 3)
-                    volumes.append(seg)
-                    if seg == 2:
-                        prices.append(650)
-                    elif seg == 3:
-                        prices.append(750)
-                    elif seg == 4:
-                        prices.append(850)
+            # Masoud
+            elif emp == "Masoud":
+                wijks = ["Rotterdam1", "Rotterdam2"]
 
-                total_wijk_price = sum(prices)
-                km = trip_km[emp]
-                trip_cost = km * 0.16
-                day_earn = (total_wijk_price / 26) + trip_cost
+            # Build rows for each wijk separately
+            total_wijk_price = 0
+            wijk_data = []
+            for w in wijks:
+                seg = segment_map.get(w, 3)
+                price = price_map.get(seg, 750)
+                total_wijk_price += price
+                wijk_data.append((w, seg, price))
 
-            else:
-                wijk_list = []
-                volumes = []
-                prices = []
-                total_wijk_price = 0
-                km = trip_km[emp]
-                trip_cost = km * 0.16
-                day_earn = 0
+            day_earn = (total_wijk_price / 26) + trip_cost
 
-            all_rows.append({
-                "Date": current_day.strftime("%Y-%m-%d"),
-                "Day": weekday,
-                "Employee": emp,
-                "On/Off of Work": status,
-                "Wijk(s) Name": ", ".join(wijk_list) if wijk_list else "",
-                "Wijk Volume/Segment": ", ".join(str(v) for v in volumes) if volumes else "",
-                "Wijk Price (€)": ", ".join([f"€ {p:.2f}" for p in prices]) if prices else "",
-                "Trip (KM)": km,
-                "Trip Cost (€)": f"€ {trip_cost:.2f}",
-                "Day Earn (€)": f"€ {day_earn:.2f}"
-            })
+            for j, (wname, seg, price) in enumerate(wijk_data):
+                rows.append({
+                    "Date": current_day.strftime("%Y-%m-%d") if j == 0 else "",
+                    "Day": weekday if j == 0 else "",
+                    "Employee": emp if j == 0 else "",
+                    "On/Off of Work": "On" if j == 0 else "",
+                    "Wijk(s) Name": wname,
+                    "Wijk Volume/Segment": seg,
+                    "Wijk Price (€)": f"€ {price:.2f}",
+                    "Trip (KM)": km if j == 0 else "",
+                    "Trip Cost (€)": f"€ {trip_cost:.2f}" if j == 0 else "",
+                    "Day Earn (€)": f"€ {day_earn:.2f}" if j == 0 else ""
+                })
 
-    return pd.DataFrame(all_rows)
+    return pd.DataFrame(rows)
 
 # ------------------------------------------------------------
-# Color styling for rows
+# Row coloring
 # ------------------------------------------------------------
 def color_rows(row):
     if row["On/Off of Work"] == "On":
-        return ["background-color: #b6f7b6"] * len(row)  # Green
+        return ["background-color: #b6f7b6"] * len(row)
     elif row["Day"] == "Sunday":
-        return ["background-color: #fff5b6"] * len(row)  # Yellow
+        return ["background-color: #fff5b6"] * len(row)
     else:
-        return ["background-color: #f7b6b6"] * len(row)  # Red
+        return ["background-color: #f7b6b6"] * len(row)
 
 # ------------------------------------------------------------
-# Login section
+# Users
 # ------------------------------------------------------------
 users = {
     "Maryam": {"password": "1234", "role": "manager"},
@@ -132,20 +147,22 @@ users = {
     "Masoud": {"password": "1234", "role": "employee"}
 }
 
+# ------------------------------------------------------------
+# Login
+# ------------------------------------------------------------
 if "logged_in" not in st.session_state:
     st.title("🗞️ Delvero Payroll Login")
 
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-        login_btn = st.form_submit_button("Login")
+        submit = st.form_submit_button("Login")
 
-    if login_btn:
+    if submit:
         if username in users and users[username]["password"] == password:
             st.session_state.logged_in = True
             st.session_state.username = username
             st.session_state.role = users[username]["role"]
-            st.success("✅ Login successful!")
             st.rerun()
         else:
             st.error("❌ Invalid username or password")
@@ -173,51 +190,33 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
     # ----------------------------
     if role == "manager" and menu == "📊 Dashboard":
         st.title("📊 Manager Dashboard")
-        st.subheader("Daily Payroll Overview (Nov 1–13, 2025)")
+        st.subheader("Detailed Employee Daily Report (Nov 1–13, 2025)")
 
-        df = generate_realistic_data()
+        df = generate_detailed_data()
 
-        # Filter section
+        # Filters
         with st.expander("🔍 Filter Options"):
-            employees = df["Employee"].unique().tolist()
+            employees = df["Employee"].replace("", pd.NA).dropna().unique().tolist()
             selected_employees = st.multiselect("Select Employee(s):", employees, default=employees)
-            min_date = pd.to_datetime(df["Date"]).min().date()
-            max_date = pd.to_datetime(df["Date"]).max().date()
+            min_date = pd.to_datetime(df["Date"].replace("", pd.NA).dropna()).min().date()
+            max_date = pd.to_datetime(df["Date"].replace("", pd.NA).dropna()).max().date()
             start_date, end_date = st.date_input("Select Date Range:", [min_date, max_date])
 
         filtered_df = df.copy()
-        filtered_df["Date"] = pd.to_datetime(filtered_df["Date"])
+        filtered_df["Date_parsed"] = pd.to_datetime(filtered_df["Date"], errors="coerce")
         filtered_df = filtered_df[
             (filtered_df["Employee"].isin(selected_employees)) &
-            (filtered_df["Date"].dt.date >= start_date) &
-            (filtered_df["Date"].dt.date <= end_date)
+            (filtered_df["Date_parsed"].dt.date >= start_date) &
+            (filtered_df["Date_parsed"].dt.date <= end_date)
         ]
 
         st.dataframe(
-            filtered_df.style.apply(color_rows, axis=1),
+            filtered_df.drop(columns=["Date_parsed"]).style.apply(color_rows, axis=1),
             use_container_width=True,
             height=750
         )
 
         st.caption("🟩 On Duty 🟥 Off 🟨 Sunday (Holiday)")
-
-    elif role == "manager" and menu == "⚙️ Settings":
-        st.title("⚙️ Manager Settings")
-        st.info("You can manage employees or Wijk rates here in future versions.")
-
-    # ----------------------------
-    # Employee Dashboard
-    # ----------------------------
-    elif role == "employee" and menu == "📋 My Work":
-        st.title(f"👷 Employee Dashboard – {user}")
-        df = generate_realistic_data()
-        my_df = df[df["Employee"] == user]
-        st.dataframe(my_df.style.apply(color_rows, axis=1), use_container_width=True, height=650)
-        st.caption("🟩 On Duty 🟥 Off 🟨 Sunday (Holiday)")
-
-    elif role == "employee" and menu == "⚙️ Profile":
-        st.title("⚙️ Profile Settings")
-        st.info("Profile editing and password change options coming soon.")
 
 # ------------------------------------------------------------
 # Styling
