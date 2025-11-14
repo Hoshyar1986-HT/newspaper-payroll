@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# 🗞️ Delvero Payroll System - Final Professional Version (Single Employee Filter)
+# 🗞️ Delvero Payroll System - Final Full Version with Summary Card
 # ------------------------------------------------------------
 
 import streamlit as st
@@ -14,7 +14,6 @@ st.set_page_config(
     page_icon="🗞️",
     layout="wide"
 )
-
 
 # ------------------------------------------------------------
 # Generate payroll data
@@ -126,7 +125,6 @@ def generate_detailed_data():
 
     return pd.DataFrame(rows)
 
-
 # ------------------------------------------------------------
 # Row coloring
 # ------------------------------------------------------------
@@ -140,7 +138,6 @@ def color_rows(row):
 
     return ["background-color: white"] * len(row)
 
-
 # ------------------------------------------------------------
 # Users
 # ------------------------------------------------------------
@@ -150,7 +147,6 @@ users = {
     "Hoshyar": {"password": "1234", "role": "employee"},
     "Masoud": {"password": "1234", "role": "employee"}
 }
-
 
 # ------------------------------------------------------------
 # Login Page
@@ -172,7 +168,6 @@ if "logged_in" not in st.session_state:
         else:
             st.error("❌ Invalid username or password")
 
-
 # ------------------------------------------------------------
 # Main App
 # ------------------------------------------------------------
@@ -192,7 +187,6 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
         if st.button("🚪 Logout"):
             st.session_state.clear()
             st.rerun()
-
 
     # ------------------------------------------------------------
     # MANAGER DASHBOARD
@@ -220,7 +214,6 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
 
         # ------ Month Selector ------
         with col1:
-            st.write("**Select Month**")
             month_option = st.selectbox(
                 "Month",
                 ["Whole Range", "November 2025"],
@@ -230,7 +223,6 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
 
         # ------ Date Range ------
         with col2:
-            st.write("**Select Date Range**")
             min_date = pd.to_datetime(df["Date_raw"]).min().date()
             max_date = pd.to_datetime(df["Date_raw"]).max().date()
 
@@ -240,9 +232,8 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
                 label_visibility="collapsed"
             )
 
-        # ------ Employee Filter (Single Select) ------
+        # ------ Employee Selector (Single) ------
         with col3:
-            st.write("**Select Employee**")
             employees = df["Employee_raw"].unique().tolist()
             employee_selection = st.selectbox(
                 "Employee",
@@ -279,116 +270,111 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
             height=800
         )
 
-        # ----------------------- TOTAL SUMMARY -----------------------
-        # ----------------------------
-# TOTAL SUMMARY SECTION (Modern Card Box)
-# ----------------------------
-st.markdown("---")
-st.markdown("## 📦 Summary Overview")
+        # ------------------------------------------------------------
+        # SUMMARY CARD SECTION
+        # ------------------------------------------------------------
+        st.markdown("---")
+        st.markdown("## 📦 Summary Overview")
 
-# ---- Extract Day Earn ----
-day_earn_values = (
-    display_df["Day Earn (€)"]
-    .replace("-", None)
-    .replace("", None)
-    .dropna()
-)
+        # Convert euro strings → float
+        def parse_euro(x):
+            return float(x.replace("€", "").strip())
 
-def parse_euro(x):
-    return float(x.replace("€", "").strip())
+        # ---- Total Earn ----
+        day_earn_values = (
+            display_df["Day Earn (€)"]
+            .replace("-", None)
+            .dropna()
+        )
+        total_earn_sum = day_earn_values.apply(parse_euro).sum()
 
-total_earn_sum = day_earn_values.apply(parse_euro).sum()
+        # ---- Total Segments ----
+        segment_values = (
+            display_df["Wijk Volume/Segment"]
+            .replace("-", None)
+            .dropna()
+        )
+        segment_total = segment_values.astype(float).sum()
 
-# ---- Extract Total Segments ----
-segment_values = (
-    display_df["Wijk Volume/Segment"]
-    .replace("-", None)
-    .dropna()
-)
-segment_total = segment_values.astype(float).sum()
+        # ---- Total Trip KM ----
+        trip_values = (
+            display_df["Trip (KM)"]
+            .replace("-", None)
+            .dropna()
+        )
+        trip_total_km = trip_values.astype(float).sum()
 
-# ---- Extract Total Trip (KM) ----
-trip_values = (
-    display_df["Trip (KM)"]
-    .replace("-", None)
-    .dropna()
-)
-trip_total_km = trip_values.astype(float).sum()
+        # ---- Total Trip Cost ----
+        trip_cost_values = (
+            display_df["Trip Cost (€)"]
+            .replace("-", None)
+            .dropna()
+        )
+        trip_cost_total = trip_cost_values.apply(parse_euro).sum()
 
-# ---- Extract Trip Cost (€) ----
-trip_cost_values = (
-    display_df["Trip Cost (€)"]
-    .replace("-", None)
-    .dropna()
-)
-trip_cost_total = trip_cost_values.apply(parse_euro).sum()
+        # ---------------------------- CARD UI ----------------------------
+        st.markdown("""
+        <style>
+        .summary-card {
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 14px;
+            box-shadow: 0px 4px 12px rgba(0,0,0,0.08);
+            border: 1px solid #e6e6e6;
+        }
+        .summary-metric {
+            text-align: center;
+            padding: 10px;
+        }
+        .summary-label {
+            font-size: 15px;
+            color: #555;
+        }
+        .summary-value {
+            font-size: 22px;
+            font-weight: 700;
+            margin-top: -5px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
 
+        st.markdown('<div class="summary-card">', unsafe_allow_html=True)
 
-# ---------------------------- CARD UI ----------------------------
-st.markdown("""
-<style>
-.summary-card {
-    padding: 20px;
-    background-color: #ffffff;
-    border-radius: 14px;
-    box-shadow: 0px 4px 12px rgba(0,0,0,0.08);
-    border: 1px solid #e6e6e6;
-}
-.summary-metric {
-    text-align: center;
-    padding: 10px;
-}
-.summary-label {
-    font-size: 15px;
-    color: #555;
-}
-.summary-value {
-    font-size: 22px;
-    font-weight: 700;
-    margin-top: -5px;
-}
-</style>
-""", unsafe_allow_html=True)
+        c1, c2, c3, c4 = st.columns(4)
 
-st.markdown('<div class="summary-card">', unsafe_allow_html=True)
+        with c1:
+            st.markdown(f"""
+            <div class="summary-metric">
+                <div class="summary-label">Total Earn (€)</div>
+                <div class="summary-value">€ {total_earn_sum:,.2f}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-c1, c2, c3, c4 = st.columns(4)
+        with c2:
+            st.markdown(f"""
+            <div class="summary-metric">
+                <div class="summary-label">Total Segments</div>
+                <div class="summary-value">{segment_total:,.0f}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-with c1:
-    st.markdown(f"""
-    <div class="summary-metric">
-        <div class="summary-label">Total Earn (€)</div>
-        <div class="summary-value">€ {total_earn_sum:,.2f}</div>
-    </div>
-    """, unsafe_allow_html=True)
+        with c3:
+            st.markdown(f"""
+            <div class="summary-metric">
+                <div class="summary-label">Total Trip (KM)</div>
+                <div class="summary-value">{trip_total_km:,.0f} km</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-with c2:
-    st.markdown(f"""
-    <div class="summary-metric">
-        <div class="summary-label">Total Segments</div>
-        <div class="summary-value">{segment_total:,.0f}</div>
-    </div>
-    """, unsafe_allow_html=True)
+        with c4:
+            st.markdown(f"""
+            <div class="summary-metric">
+                <div class="summary-label">Total Trip Price (€)</div>
+                <div class="summary-value">€ {trip_cost_total:,.2f}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-with c3:
-    st.markdown(f"""
-    <div class="summary-metric">
-        <div class="summary-label">Total Trip (KM)</div>
-        <div class="summary-value">{trip_total_km:,.0f} km</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with c4:
-    st.markdown(f"""
-    <div class="summary-metric">
-        <div class="summary-label">Total Trip Price (€)</div>
-        <div class="summary-value">€ {trip_cost_total:,.2f}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # ------------------------------------------------------------
 # Global Styling
