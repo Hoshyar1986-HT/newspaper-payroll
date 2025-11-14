@@ -40,18 +40,26 @@ SUPABASE_HEADERS = {
 
 def db_insert(table, data):
     url = f"{SUPABASE_URL}/rest/v1/{table}"
-    response = requests.post(url, headers=SUPABASE_HEADERS, data=json.dumps(data))
-    return response.json()
+    headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"  # لازم برای نمایش رکورد ساخته شده
+    }
+    response = requests.post(url, headers=headers, json=data)
 
-def db_select(table, filters=""):
-    url = f"{SUPABASE_URL}/rest/v1/{table}{filters}"
-    response = requests.get(url, headers=SUPABASE_HEADERS)
-    return response.json()
+    # اگر Supabase خطا دارد → نمایش متن خطا
+    if response.status_code >= 300:
+        st.error("Supabase Error:")
+        st.write(response.text)
+        return None
 
-def db_delete(table, filter_query):
-    url = f"{SUPABASE_URL}/rest/v1/{table}{filter_query}"
-    response = requests.delete(url, headers=SUPABASE_HEADERS)
-    return response.json()
+    # تلاش برای خواندن JSON
+    try:
+        return response.json()  # موفقیت
+    except:
+        # اگر JSON نبود (مثلاً empty body) → همچنان ایجاد شده
+        return {"status": "created"}
+
 
 
 # ============================================================
