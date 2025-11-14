@@ -245,13 +245,16 @@ if role == "manager" and menu == "📊 Dashboard":
 if role == "employee" and menu == "📊 Dashboard":
     st.title("📊 Employee Dashboard")
     st.write("Submit work and see your recent activity here.")
-# ==========================================
-# ZONE #11 — ADMIN: ADD MANAGER
-# ==========================================
+# ============================
+# ZONE 11 — ADD MANAGER (ADMIN ONLY)
+# ============================
 
 if role == "admin" and menu == "➕ Add Manager":
-    
+
     st.title("➕ Add New Manager")
+
+    if "manager_created" not in st.session_state:
+        st.session_state.manager_created = False
 
     with st.form("form_add_manager"):
         firstname = st.text_input("First Name")
@@ -262,14 +265,12 @@ if role == "admin" and menu == "➕ Add Manager":
         submit_btn = st.form_submit_button("Create Manager")
 
     if submit_btn:
-
         if not firstname or not lastname or not username_new or not password_new:
             st.error("❌ All fields except Address are required.")
 
         else:
             hashed_pw = hash_password(password_new)
-
-            result = db_insert("employees", {
+            db_insert("employees", {
                 "firstname": firstname,
                 "lastname": lastname,
                 "address": address,
@@ -278,16 +279,19 @@ if role == "admin" and menu == "➕ Add Manager":
                 "role": "manager"
             })
 
-            if result:
-                st.success(f"✅ Manager {firstname} {lastname} created successfully!")
-                st.session_state.menu = "📋 List Managers"
-                st.experimental_rerun()
-# ==========================================
-# ZONE #12 — ADMIN: LIST MANAGERS
-# ==========================================
+            st.success(f"Manager {firstname} {lastname} created successfully!")
+            st.session_state.manager_created = True
+
+    if st.session_state.manager_created:
+        st.session_state.manager_created = False
+        st.session_state.menu = "📋 List Managers"
+        st.experimental_rerun()
+# ============================
+# ZONE 12 — LIST MANAGERS
+# ============================
 
 if role == "admin" and menu == "📋 List Managers":
-    
+
     st.title("📋 All Managers")
 
     managers = db_select("employees", "?role=eq.manager")
@@ -301,22 +305,32 @@ if role == "admin" and menu == "📋 List Managers":
     st.markdown("---")
     st.subheader("🗑 Delete Manager")
 
+    if "delete_manager_flag" not in st.session_state:
+        st.session_state.delete_manager_flag = False
+
     if managers:
         usernames = [m["username"] for m in managers]
         selected = st.selectbox("Select Manager", usernames)
-        del_btn = st.button("Delete Manager")
+        delete_btn = st.button("Delete Manager")
 
-        if del_btn:
+        if delete_btn:
             db_delete("employees", f"?username=eq.{selected}")
             st.success(f"Manager '{selected}' deleted.")
-            st.experimental_rerun()
-# ==========================================
-# ZONE #13 — ADD EMPLOYEE (ADMIN + MANAGER)
-# ==========================================
+            st.session_state.delete_manager_flag = True
+
+    if st.session_state.delete_manager_flag:
+        st.session_state.delete_manager_flag = False
+        st.experimental_rerun()
+# ============================
+# ZONE 13 — ADD EMPLOYEE
+# ============================
 
 if menu == "➕ Add Employee" and role in ["admin", "manager"]:
-    
+
     st.title("➕ Add Employee")
+
+    if "employee_created" not in st.session_state:
+        st.session_state.employee_created = False
 
     with st.form("form_add_employee"):
         firstname = st.text_input("First Name")
@@ -327,14 +341,12 @@ if menu == "➕ Add Employee" and role in ["admin", "manager"]:
         submit_btn = st.form_submit_button("Create Employee")
 
     if submit_btn:
-
         if not firstname or not lastname or not username_new or not password_new:
             st.error("❌ All fields except Address are required.")
 
         else:
             hashed_pw = hash_password(password_new)
-
-            result = db_insert("employees", {
+            db_insert("employees", {
                 "firstname": firstname,
                 "lastname": lastname,
                 "address": address,
@@ -343,13 +355,16 @@ if menu == "➕ Add Employee" and role in ["admin", "manager"]:
                 "role": "employee"
             })
 
-            if result:
-                st.success(f"✅ Employee {firstname} {lastname} created successfully!")
-                st.session_state.menu = "📋 Employee List"
-                st.experimental_rerun()
-# ==========================================
-# ZONE #14 — LIST EMPLOYEES (ADMIN + MANAGER)
-# ==========================================
+            st.success(f"Employee {firstname} {lastname} created successfully!")
+            st.session_state.employee_created = True
+
+    if st.session_state.employee_created:
+        st.session_state.employee_created = False
+        st.session_state.menu = "📋 Employee List"
+        st.experimental_rerun()
+# ============================
+# ZONE 14 — LIST EMPLOYEES
+# ============================
 
 if menu == "📋 Employee List" and role in ["admin", "manager"]:
 
@@ -362,35 +377,59 @@ if menu == "📋 Employee List" and role in ["admin", "manager"]:
     else:
         df = pd.DataFrame(employees)[["firstname", "lastname", "username"]]
         st.dataframe(df, use_container_width=True)
-# ==========================================
-# ZONE #15 — EMPLOYEE: SUBMIT WORK
-# ==========================================
+
+    st.markdown("---")
+    st.subheader("🗑 Delete Employee")
+
+    if "delete_employee_flag" not in st.session_state:
+        st.session_state.delete_employee_flag = False
+
+    if employees:
+        usernames = [u["username"] for u in employees]
+        selected = st.selectbox("Select Employee", usernames)
+        delete_btn = st.button("Delete Employee")
+
+        if delete_btn:
+            db_delete("employees", f"?username=eq.{selected}")
+            st.success(f"Employee '{selected}' deleted.")
+            st.session_state.delete_employee_flag = True
+
+    if st.session_state.delete_employee_flag:
+        st.session_state.delete_employee_flag = False
+        st.experimental_rerun()
+# ============================
+# ZONE 15 — EMPLOYEE: SUBMIT WORK
+# ============================
 
 if role == "employee" and menu == "📝 Submit Work":
 
     st.title("📝 Submit Daily Work")
 
-    employee_username = st.session_state.username
+    if "work_submitted" not in st.session_state:
+        st.session_state.work_submitted = False
 
     with st.form("submit_work_form"):
         work_date = st.date_input("Date")
         wijk_name = st.text_input("Wijk Name (e.g. Chaam1)")
-        segments = st.number_input("Segments", min_value=1, max_value=10)
-        trip_km = st.number_input("Trip KM", min_value=0, max_value=400)
+        segments  = st.number_input("Segments", min_value=1, max_value=10)
+        trip_km   = st.number_input("Trip KM", min_value=0, max_value=400)
         submit_btn = st.form_submit_button("Submit Work")
 
     if submit_btn:
-        result = db_insert("work_logs", {
-            "username": employee_username,
+        db_insert("work_logs", {
+            "username": st.session_state.username,
             "date": str(work_date),
             "wijk": wijk_name,
             "segments": segments,
             "trip_km": trip_km
         })
 
-        if result:
-            st.success("✅ Work Submitted Successfully!")
-            st.experimental_rerun()
+        st.success("Work submitted successfully!")
+        st.session_state.work_submitted = True
+
+    if st.session_state.work_submitted:
+        st.session_state.work_submitted = False
+        st.experimental_rerun()
 # ==========================================
 # ZONE #16 — LOAD PAYROLL DATA (FINAL + FIXED)
 # ==========================================
