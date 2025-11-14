@@ -73,15 +73,6 @@ def get_user_by_username(username):
 # === 5. LOGIN PAGE ==========================================
 # ============================================================
 
-# DEBUG TEST - REMOVE LATER
-st.write("TEST SUPABASE RESPONSE:")
-test = db_select("employees", "?username=eq.administrator")
-st.write(test)
-
-st.write("HASH TEST:")
-st.write("Input hash:", hash_password("@912544Hoshyar"))
-st.write("Stored hash:", "9d3cecc548f42806c80eef3e199357724f4f99e8ca9184a5ea453b27fb6bd394")
-
 
 if "logged_in" not in st.session_state:
 
