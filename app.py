@@ -280,28 +280,114 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
         )
 
         # ----------------------- TOTAL SUMMARY -----------------------
-        st.markdown("---")
-        st.subheader("💰 Total Earn (Selected Range)")
+        # ----------------------------
+# TOTAL SUMMARY SECTION (Modern Card Box)
+# ----------------------------
+st.markdown("---")
+st.markdown("## 📦 Summary Overview")
 
-        # Extract Day Earn values
-        day_earn_values = (
-            display_df["Day Earn (€)"]
-            .replace("-", None)
-            .replace("", None)
-            .dropna()
-        )
+# ---- Extract Day Earn ----
+day_earn_values = (
+    display_df["Day Earn (€)"]
+    .replace("-", None)
+    .replace("", None)
+    .dropna()
+)
 
-        def parse_euro(x):
-            return float(x.replace("€", "").strip())
+def parse_euro(x):
+    return float(x.replace("€", "").strip())
 
-        total_sum = day_earn_values.apply(parse_euro).sum()
+total_earn_sum = day_earn_values.apply(parse_euro).sum()
 
-        st.metric(
-            label="Total Earn (€)",
-            value=f"€ {total_sum:,.2f}"
-        )
+# ---- Extract Total Segments ----
+segment_values = (
+    display_df["Wijk Volume/Segment"]
+    .replace("-", None)
+    .dropna()
+)
+segment_total = segment_values.astype(float).sum()
 
-        st.caption("🔴 Sunday  |  🟧 Off  |  ⚪ Workday")
+# ---- Extract Total Trip (KM) ----
+trip_values = (
+    display_df["Trip (KM)"]
+    .replace("-", None)
+    .dropna()
+)
+trip_total_km = trip_values.astype(float).sum()
+
+# ---- Extract Trip Cost (€) ----
+trip_cost_values = (
+    display_df["Trip Cost (€)"]
+    .replace("-", None)
+    .dropna()
+)
+trip_cost_total = trip_cost_values.apply(parse_euro).sum()
+
+
+# ---------------------------- CARD UI ----------------------------
+st.markdown("""
+<style>
+.summary-card {
+    padding: 20px;
+    background-color: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0px 4px 12px rgba(0,0,0,0.08);
+    border: 1px solid #e6e6e6;
+}
+.summary-metric {
+    text-align: center;
+    padding: 10px;
+}
+.summary-label {
+    font-size: 15px;
+    color: #555;
+}
+.summary-value {
+    font-size: 22px;
+    font-weight: 700;
+    margin-top: -5px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<div class="summary-card">', unsafe_allow_html=True)
+
+c1, c2, c3, c4 = st.columns(4)
+
+with c1:
+    st.markdown(f"""
+    <div class="summary-metric">
+        <div class="summary-label">Total Earn (€)</div>
+        <div class="summary-value">€ {total_earn_sum:,.2f}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c2:
+    st.markdown(f"""
+    <div class="summary-metric">
+        <div class="summary-label">Total Segments</div>
+        <div class="summary-value">{segment_total:,.0f}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c3:
+    st.markdown(f"""
+    <div class="summary-metric">
+        <div class="summary-label">Total Trip (KM)</div>
+        <div class="summary-value">{trip_total_km:,.0f} km</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c4:
+    st.markdown(f"""
+    <div class="summary-metric">
+        <div class="summary-label">Total Trip Price (€)</div>
+        <div class="summary-value">€ {trip_cost_total:,.2f}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
 
 
 # ------------------------------------------------------------
