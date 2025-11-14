@@ -346,22 +346,29 @@ if role == "manager" and menu == "➕ Add Employee":
         submit_btn = st.form_submit_button("Create Employee")
 
     if submit_btn:
-        if not firstname or not lastname or not username_new or not password_new:
-            st.error("❌ All fields except Address are required.")
 
-        else:
-            hashed_pw = hash_password(password_new)
+    if not firstname or not lastname or not username_new or not password_new:
+        st.error("❌ All fields except Address are required.")
 
-            result = db_insert("employees", {
-                "firstname": firstname,
-                "lastname": lastname,
-                "address": address,
-                "username": username_new,
-                "password": hashed_pw,
-                "role": "employee"
-            })
+    else:
+        hashed_pw = hash_password(password_new)
 
-            st.success(f"✅ Employee {firstname} {lastname} created successfully!")
+        result = db_insert("employees", {
+            "firstname": firstname,
+            "lastname": lastname,
+            "address": address,
+            "username": username_new,
+            "password": hashed_pw,
+            "role": "manager"
+        })
+
+        if result:
+            st.success(f"✅ Manager {firstname} {lastname} created successfully!")
+
+            # تغییر صفحه به لیست مدیرها
+            st.session_state.menu = "📋 List Managers"
+            st.experimental_rerun()
+
 
 
 
