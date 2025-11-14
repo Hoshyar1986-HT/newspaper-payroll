@@ -431,12 +431,11 @@ if role == "employee" and menu == "📝 Submit Work":
         st.session_state.work_submitted = False
         st.experimental_rerun()
 # ==========================================
-# ZONE #16 — LOAD PAYROLL DATA (FINAL + FIXED)
+# ZONE #16 — LOAD PAYROLL DATA (FINAL FIXED VERSION)
 # ==========================================
 
 def load_payroll(username_filter=None, start_date=None, end_date=None):
 
-    # Build query
     query = "?select=username,date,wijk,segments,trip_km"
 
     if username_filter:
@@ -448,44 +447,50 @@ def load_payroll(username_filter=None, start_date=None, end_date=None):
     if end_date:
         query += f"&date=lte.{end_date}"
 
-    # Fetch data from Supabase
     logs = db_select("work_logs", query)
 
-    # ---- SAFETY CHECK (very important) ----
-    # Supabase may return: None, [], or [{}]
+    # -------------------------------------
+    # FIX 1: Handle None, empty list, empty dict, single dict
+    # -------------------------------------
     if not logs or logs == [{}]:
         return pd.DataFrame()
 
-    # Convert to DataFrame
+    # If Supabase returns a single dict (not list), convert to list
+    if isinstance(logs, dict):
+        logs = [logs]
+
+    # If Supabase returns list but contains None
+    logs = [x for x in logs if x and isinstance(x, dict)]
+
+    if not logs:
+        return pd.DataFrame()
+
+    # -------------------------------------
+    # FIX 2: Build DataFrame safely
+    # -------------------------------------
     df = pd.DataFrame(logs)
 
-    # Ensure required columns exist
-    required_cols = ["username", "date", "wijk", "segments", "trip_km"]
-    for col in required_cols:
+    # Ensure required columns always exist
+    for col in ["username", "date", "wijk", "segments", "trip_km"]:
         if col not in df.columns:
             df[col] = None
 
-    # Convert date to weekday
     df["Day"] = pd.to_datetime(df["date"]).dt.day_name()
 
-    # ---- Wijk Price Based on Segments ----
+    # ---- Wijk price calculation ----
     def wijk_price(seg):
         if seg == 2: return 650
         if seg == 3: return 750
         if seg == 4: return 850
-        # fallback if someone enters 1 or >4
         return 500 + 100 * int(seg)
 
     df["Wijk Price (€)"] = df["segments"].astype(float).apply(wijk_price)
-
-    # ---- Trip Cost ----
     df["Trip Cost (€)"] = df["trip_km"].astype(float) * 0.16
-
-    # ---- Daily Earnings ----
     df["Wijk Earn (€)"] = df["Wijk Price (€)"] / 26
     df["Day Earn (€)"]  = df["Wijk Earn (€)"] + df["Trip Cost (€)"]
 
     return df
+
 # ==========================================
 # ZONE #17 — PAYROLL DASHBOARD (ADMIN + MANAGER)
 # ==========================================
