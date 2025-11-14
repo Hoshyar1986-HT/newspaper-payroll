@@ -444,6 +444,7 @@ if role == "employee" and menu == "📝 Submit Work":
 
 def load_payroll(username_filter=None, start_date=None, end_date=None):
 
+    # Build REST query
     query = "?select=username,date,wijk,segments,trip_km"
 
     if username_filter:
@@ -455,49 +456,74 @@ def load_payroll(username_filter=None, start_date=None, end_date=None):
     if end_date:
         query += f"&date=lte.{end_date}"
 
+    # Fetch from Supabase
     logs = db_select("work_logs", query)
 
-    # -------------------------------------
-    # FIX 1: Handle None, empty list, empty dict, single dict
-    # -------------------------------------
+    # ----------------------------
+    # FIX 1: Handle empty states
+    # ----------------------------
     if not logs or logs == [{}]:
         return pd.DataFrame()
 
-    # If Supabase returns a single dict (not list), convert to list
+    # Supabase sometimes returns a single dict instead of list
     if isinstance(logs, dict):
         logs = [logs]
 
-    # If Supabase returns list but contains None
-    logs = [x for x in logs if x and isinstance(x, dict)]
+    # Remove invalid items
+    logs = [x for x in logs if isinstance(x, dict) and x]
 
     if not logs:
         return pd.DataFrame()
 
-    # -------------------------------------
-    # FIX 2: Build DataFrame safely
-    # -------------------------------------
+    # ----------------------------
+    # FIX 2: Safe DataFrame creation
+    # ----------------------------
     df = pd.DataFrame(logs)
 
-    # Ensure required columns always exist
-    for col in ["username", "date", "wijk", "segments", "trip_km"]:
+    # Ensure columns exist
+    required_cols = ["username", "date", "wijk", "segments", "trip_km"]
+    for col in required_cols:
         if col not in df.columns:
             df[col] = None
 
+    # Convert date to weekday name
     df["Day"] = pd.to_datetime(df["date"]).dt.day_name()
 
-    # ---- Wijk price calculation ----
+    # ----------------------------
+    # FIX 3: CLEAN SEGMENTS & TRIP DATA
+    # ----------------------------
+    # Convert invalid 'segments' to 0
+    df["segments"] = pd.to_numeric(df["segments"], errors="coerce").fillna(0)
+
+    # Convert invalid trip_km to 0
+    df["trip_km"] = pd.to_numeric(df["trip_km"], errors="coerce").fillna(0)
+
+    # ----------------------------
+    # FIX 4: Pricing Logic
+    # ----------------------------
     def wijk_price(seg):
+        seg = int(seg)  # safe because segments already cleaned
+
         if seg == 2: return 650
         if seg == 3: return 750
         if seg == 4: return 850
-        return 500 + 100 * int(seg)
 
-    df["Wijk Price (€)"] = df["segments"].astype(float).apply(wijk_price)
-    df["Trip Cost (€)"] = df["trip_km"].astype(float) * 0.16
+        # fallback rule for any other segment count
+        return 500 + 100 * seg
+
+    df["Wijk Price (€)"] = df["segments"].apply(wijk_price)
+
+    # Trip cost at €0.16 per km
+    df["Trip Cost (€)"] = df["trip_km"] * 0.16
+
+    # Wijk earnings spread across 26 work days
     df["Wijk Earn (€)"] = df["Wijk Price (€)"] / 26
-    df["Day Earn (€)"]  = df["Wijk Earn (€)"] + df["Trip Cost (€)"]
+
+    # Total earnings for that day
+    df["Day Earn (€)"] = df["Wijk Earn (€)"] + df["Trip Cost (€)"]
 
     return df
+
 
 # ==========================================
 # ZONE #17 — PAYROLL DASHBOARD (ADMIN + MANAGER)
