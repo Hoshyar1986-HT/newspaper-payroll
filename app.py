@@ -137,6 +137,9 @@ if "username" not in st.session_state:
 if "menu" not in st.session_state:
     st.session_state.menu = None
 
+if "login_success" not in st.session_state:
+    st.session_state.login_success = False
+
 
 def logout():
     st.session_state.logged_in = False
@@ -155,7 +158,6 @@ if not st.session_state.logged_in:
 
     username_input = st.text_input("Username")
     password_input = st.text_input("Password", type="password")
-
     login_btn = st.button("Login")
 
     if login_btn:
@@ -165,13 +167,18 @@ if not st.session_state.logged_in:
             st.session_state.logged_in = True
             st.session_state.role = user["role"]
             st.session_state.username = user["username"]
-            st.session_state.menu = "dashboard"
-            st.experimental_rerun()
-
+            st.session_state.menu = "📊 Dashboard"
+            st.session_state.login_success = True
         else:
             st.error("❌ Invalid username or password")
 
+    # Safe rerun AFTER login and AFTER render
+    if st.session_state.login_success:
+        st.session_state.login_success = False
+        st.experimental_rerun()
+
     st.stop()   # Prevents loading rest of app before login
+
 # ==========================================
 # ZONE #7 — SIDEBAR (MENU BY ROLE)
 # ==========================================
