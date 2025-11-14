@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# 🗞️ Delvero Payroll System - Final Full Version with Summary Card
+# 🗞️ Delvero Payroll System - Full Stable Version (2025)
 # ------------------------------------------------------------
 
 import streamlit as st
@@ -125,6 +125,7 @@ def generate_detailed_data():
 
     return pd.DataFrame(rows)
 
+
 # ------------------------------------------------------------
 # Row coloring
 # ------------------------------------------------------------
@@ -137,6 +138,7 @@ def color_rows(row):
         return ["background-color: #ffcc99"] * len(row)   # Orange
 
     return ["background-color: white"] * len(row)
+
 
 # ------------------------------------------------------------
 # Users
@@ -167,6 +169,7 @@ if "logged_in" not in st.session_state:
             st.rerun()
         else:
             st.error("❌ Invalid username or password")
+
 
 # ------------------------------------------------------------
 # Main App
@@ -232,7 +235,7 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
                 label_visibility="collapsed"
             )
 
-        # ------ Employee Selector (Single) ------
+        # ------ Employee Selector ------
         with col3:
             employees = df["Employee_raw"].unique().tolist()
             employee_selection = st.selectbox(
@@ -245,7 +248,6 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
         st.markdown("</div>", unsafe_allow_html=True)
 
         # ----------------------- Apply Filters -----------------------
-
         if month_option == "November 2025":
             start_date = datetime(2025, 11, 1).date()
             end_date = datetime(2025, 11, 30).date()
@@ -263,7 +265,7 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
 
         display_df = df[mask].drop(columns=["Date_raw", "Employee_raw"])
 
-        # ----------------------- Show Table -----------------------
+        # ----------------------- TABLE -----------------------
         st.dataframe(
             display_df.style.apply(color_rows, axis=1),
             use_container_width=True,
@@ -271,48 +273,58 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
         )
 
         # ------------------------------------------------------------
-        # SUMMARY CARD SECTION
+        # SUMMARY CARD SECTION – Error-proof version
         # ------------------------------------------------------------
         st.markdown("---")
         st.markdown("## 📦 Summary Overview")
 
-        # Convert euro strings → float
+        # Safe parser
         def parse_euro(x):
-            return float(x.replace("€", "").strip())
+            if not isinstance(x, str):
+                return None
+            x = x.replace("€", "").replace(",", "").strip()
+            if x == "" or x == "-" or x.lower() == "none":
+                return None
+            try:
+                return float(x)
+            except:
+                return None
 
         # ---- Total Earn ----
-        day_earn_values = (
+        day_earn_vals = (
             display_df["Day Earn (€)"]
             .replace("-", None)
             .dropna()
         )
-        total_earn_sum = day_earn_values.apply(parse_euro).sum()
+        total_earn_sum = day_earn_vals.apply(parse_euro).dropna().sum()
 
         # ---- Total Segments ----
-        segment_values = (
+        segment_vals = (
             display_df["Wijk Volume/Segment"]
             .replace("-", None)
             .dropna()
         )
-        segment_total = segment_values.astype(float).sum()
+        total_segments = segment_vals.astype(float).sum()
 
         # ---- Total Trip KM ----
-        trip_values = (
+        trip_vals = (
             display_df["Trip (KM)"]
             .replace("-", None)
             .dropna()
         )
-        trip_total_km = trip_values.astype(float).sum()
+        total_km = trip_vals.astype(float).sum()
 
         # ---- Total Trip Cost ----
-        trip_cost_values = (
+        trip_cost_vals = (
             display_df["Trip Cost (€)"]
             .replace("-", None)
             .dropna()
         )
-        trip_cost_total = trip_cost_values.apply(parse_euro).sum()
+        total_trip_cost = trip_cost_vals.apply(parse_euro).dropna().sum()
 
-        # ---------------------------- CARD UI ----------------------------
+        # ------------------------------------------------------------
+        # Summary Card UI
+        # ------------------------------------------------------------
         st.markdown("""
         <style>
         .summary-card {
@@ -340,9 +352,9 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
 
         st.markdown('<div class="summary-card">', unsafe_allow_html=True)
 
-        c1, c2, c3, c4 = st.columns(4)
+        colA, colB, colC, colD = st.columns(4)
 
-        with c1:
+        with colA:
             st.markdown(f"""
             <div class="summary-metric">
                 <div class="summary-label">Total Earn (€)</div>
@@ -350,27 +362,27 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
             </div>
             """, unsafe_allow_html=True)
 
-        with c2:
+        with colB:
             st.markdown(f"""
             <div class="summary-metric">
                 <div class="summary-label">Total Segments</div>
-                <div class="summary-value">{segment_total:,.0f}</div>
+                <div class="summary-value">{total_segments:,.0f}</div>
             </div>
             """, unsafe_allow_html=True)
 
-        with c3:
+        with colC:
             st.markdown(f"""
             <div class="summary-metric">
                 <div class="summary-label">Total Trip (KM)</div>
-                <div class="summary-value">{trip_total_km:,.0f} km</div>
+                <div class="summary-value">{total_km:,.0f} km</div>
             </div>
             """, unsafe_allow_html=True)
 
-        with c4:
+        with colD:
             st.markdown(f"""
             <div class="summary-metric">
                 <div class="summary-label">Total Trip Price (€)</div>
-                <div class="summary-value">€ {trip_cost_total:,.2f}</div>
+                <div class="summary-value">€ {total_trip_cost:,.2f}</div>
             </div>
             """, unsafe_allow_html=True)
 
