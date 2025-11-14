@@ -150,7 +150,7 @@ def logout():
 
 
 # -------------------------------
-# LOGIN SCREEN
+# LOGIN SCREEN (FINAL SAFE VERSION)
 # -------------------------------
 if not st.session_state.logged_in:
 
@@ -172,12 +172,13 @@ if not st.session_state.logged_in:
         else:
             st.error("❌ Invalid username or password")
 
-    # Safe rerun AFTER login and AFTER render
+    # SAFE REDIRECT (NO RERUN HERE!)
     if st.session_state.login_success:
         st.session_state.login_success = False
-        st.experimental_rerun()
+        st.stop()  # stop rendering, next run will be logged in
+    else:
+        st.stop()
 
-    st.stop()   # Prevents loading rest of app before login
 
 # ==========================================
 # ZONE #7 — SIDEBAR (MENU BY ROLE)
