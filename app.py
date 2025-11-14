@@ -1,401 +1,256 @@
-# ============================================================
-# === 1. IMPORTS & PAGE SETUP ================================
-# ============================================================
-
+# ==========================================
+# ZONE #1 — IMPORTS & INITIAL CONFIG
+# ==========================================
 import streamlit as st
 import pandas as pd
+import requests
+import hashlib
 from datetime import datetime, timedelta
-import requests, json, hashlib
-
 
 st.set_page_config(
     page_title="Delvero Payroll System",
-    page_icon="🗞️",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
-
-
-# ============================================================
-# === 2. SUPABASE CONFIG (REST API) ==========================
-# ============================================================
-
+# ==========================================
+# ZONE #2 — SUPABASE CONFIG
+# ==========================================
 SUPABASE_URL = "https://qggrtnyfgvlrmoopjdte.supabase.co"
-SUPABASE_ANON_KEY = (
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnZ3J0bnlmZ3Zscm1vb3BqZHRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxMTYxMjQsImV4cCI6MjA3ODY5MjEyNH0."
-    "WCSXtc_l5aNndAOTagLW-LWQPePIWPlLNRkWx_MNacI"
-)
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnZ3J0bnlmZ3Zscm1vb3BqZHRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxMTYxMjQsImV4cCI6MjA3ODY5MjEyNH0.WCSXtc_l5aNndAOTagLW-LWQPePIWPlLNRkWx_MNacI"
+# ==========================================
+# ZONE #3 — DATABASE HELPER FUNCTIONS (REST API)
+# ==========================================
 
-SUPABASE_HEADERS = {
-    "apikey": SUPABASE_ANON_KEY,
-    "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
-    "Content-Type": "application/json",
-}
+def db_select(table, query=""):
+    url = f"{SUPABASE_URL}/rest/v1/{table}{query}"
+    headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Content-Type": "application/json"
+    }
+    response = requests.get(url, headers=headers)
+    try:
+        return response.json()
+    except:
+        return None
 
-
-
-# ============================================================
-# === 3. DATABASE FUNCTIONS (REST API) =======================
-# ============================================================
 
 def db_insert(table, data):
     url = f"{SUPABASE_URL}/rest/v1/{table}"
     headers = {
         "apikey": SUPABASE_ANON_KEY,
         "Content-Type": "application/json",
-        "Prefer": "return=representation"  # لازم برای نمایش رکورد ساخته شده
+        "Prefer": "return=representation"
     }
     response = requests.post(url, headers=headers, json=data)
 
-    # اگر Supabase خطا دارد → نمایش متن خطا
     if response.status_code >= 300:
         st.error("Supabase Error:")
         st.write(response.text)
         return None
 
-    # تلاش برای خواندن JSON
     try:
-        return response.json()  # موفقیت
+        return response.json()
     except:
-        # اگر JSON نبود (مثلاً empty body) → همچنان ایجاد شده
         return {"status": "created"}
 
 
-
-# ============================================================
-# === 4. AUTH HELPERS ========================================
-# ============================================================
+def db_delete(table, query=""):
+    url = f"{SUPABASE_URL}/rest/v1/{table}{query}"
+    headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Content-Type": "application/json"
+    }
+    response = requests.delete(url, headers=headers)
+    return response.status_code == 204
+# ==========================================
+# ZONE #4 — PASSWORD HASHING + GET USER
+# ==========================================
 
 def hash_password(password: str):
+    password = password.strip()
     return hashlib.sha256(password.encode()).hexdigest()
+
 
 def check_password(input_pw, stored_hash):
     return hash_password(input_pw) == stored_hash
 
+
 def get_user_by_username(username):
-    result = db_select("employees", f"?username=eq.{username}")
-    return result[0] if result else None
+    users = db_select("employees", f"?username=eq.{username}")
+    if users and len(users) > 0:
+        return users[0]
+    return None
+# ==========================================
+# ZONE #5 — GLOBAL CSS (Mobile UI + Clean Style)
+# ==========================================
 
+st.markdown("""
+<style>
 
-# ============================================================
-# === 5. LOGIN PAGE ==========================================
-# ============================================================
+html, body, [class*="css"] {
+    font-size: 16px !important;
+}
 
+.stButton > button {
+    width: 100%;
+    padding: 12px;
+    font-size: 17px;
+    border-radius: 10px;
+}
 
+[data-testid="stDataFrame"] div {
+    scrollbar-width: thin;
+}
+
+.sidebar-title {
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    padding: 10px 0 20px 0;
+}
+
+.sticky-filter {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: #ffffff;
+    padding: 8px;
+    border-radius: 10px;
+    border: 1px solid #eee;
+}
+
+</style>
+""", unsafe_allow_html=True)
+# ==========================================
+# ZONE #6 — LOGIN SYSTEM (ADMIN / MANAGER / EMPLOYEE)
+# ==========================================
+
+# Initialize session keys
 if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-    st.title("🗞️ Delvero Payroll Login")
+if "role" not in st.session_state:
+    st.session_state.role = None
 
-    with st.form("login_form"):
-        username_input = st.text_input("Username")
-        password_input = st.text_input("Password", type="password")
-        login_btn = st.form_submit_button("Login")
+if "username" not in st.session_state:
+    st.session_state.username = None
+
+if "menu" not in st.session_state:
+    st.session_state.menu = None
+
+
+def logout():
+    st.session_state.logged_in = False
+    st.session_state.role = None
+    st.session_state.username = None
+    st.session_state.menu = None
+    st.experimental_rerun()
+
+
+# -------------------------------
+# LOGIN SCREEN
+# -------------------------------
+if not st.session_state.logged_in:
+
+    st.title("🔐 Delvero Login")
+
+    username_input = st.text_input("Username")
+    password_input = st.text_input("Password", type="password")
+
+    login_btn = st.button("Login")
 
     if login_btn:
-
         user = get_user_by_username(username_input)
 
         if user and check_password(password_input, user["password"]):
             st.session_state.logged_in = True
-            st.session_state.username = user["username"]
             st.session_state.role = user["role"]
-            st.rerun()
+            st.session_state.username = user["username"]
+            st.session_state.menu = "dashboard"
+            st.experimental_rerun()
+
         else:
             st.error("❌ Invalid username or password")
 
-    st.stop()
+    st.stop()   # Prevents loading rest of app before login
+# ==========================================
+# ZONE #7 — SIDEBAR (MENU BY ROLE)
+# ==========================================
 
-
-
-# ============================================================
-# === 6. SIDEBAR MENU ========================================
-# ============================================================
+st.sidebar.markdown(
+    "<div class='sidebar-title'>📋 Menu</div>",
+    unsafe_allow_html=True
+)
 
 role = st.session_state.role
-user = st.session_state.username
+username = st.session_state.username
 
-with st.sidebar:
-    st.header(f"👋 Welcome, {user}")
-    st.markdown("---")
+# Display user info
+st.sidebar.write(f"👤 **User:** {username}")
+st.sidebar.write(f"🔑 **Role:** {role.capitalize()}")
 
-    # ADMIN
-    if role == "admin":
-        menu = st.radio("Menu", [
-            "🏠 Admin Dashboard",
-            "➕ Add Manager",
-            "📋 List Managers",
-            "👥 Manager Tools",
-            "📊 View All Payroll",
-            "⚙ System Settings"
-        ])
+st.sidebar.markdown("---")
 
-    # MANAGER
-    elif role == "manager":
-        menu = st.radio("Menu", [
-            "📊 Dashboard",
-            "➕ Add Employee",
-            "📋 My Employees",
-            "⚙ Settings"
-        ])
+# Role-based menu
+if role == "admin":
+    menu_options = [
+        "📊 Dashboard",
+        "➕ Add Manager",
+        "📋 List Managers",
+        "🧑‍💼 Add Employee",
+        "📋 Employee List",
+        "⚙ System Settings"
+    ]
 
-    # EMPLOYEE
-    else:
-        menu = st.radio("Menu", [
-            "📋 My Work",
-            "📝 Submit Day Work",
-            "⚙ Profile"
-        ])
+elif role == "manager":
+    menu_options = [
+        "📊 Dashboard",
+        "➕ Add Employee",
+        "📋 My Employees"
+    ]
 
-    st.markdown("---")
+elif role == "employee":
+    menu_options = [
+        "📊 Dashboard",
+    +   "📝 Submit Work",
+        "⚙ Profile"
+    ]
 
-    if st.button("🚪 Logout"):
-        st.session_state.clear()
-        st.rerun()
-# ============================================================
-# === 7. PAYROLL DATA GENERATOR (SIMULATION FOR NOW) =========
-# ============================================================
+else:
+    menu_options = ["📊 Dashboard"]
 
-def generate_payroll_data(start_date, end_date, selected_employee="All"):
-    """Temporary simulation before real employee work logs are implemented."""
+# Sidebar Selection
+menu = st.sidebar.radio("Navigation", menu_options)
+st.session_state.menu = menu
 
-    date_list = pd.date_range(start=start_date, end=end_date)
-    records = []
+st.sidebar.markdown("---")
+st.sidebar.button("🚪 Logout", on_click=logout)
+# ==========================================
+# ZONE #8 — ADMIN DASHBOARD
+# ==========================================
 
-    # Segment counts
-    wijk_segments = {
-        "Chaam1": 3, "Chaam4": 4, "Galder1": 2,
-        "Lexmond2": 3, "Rotterdam1": 3, "Rotterdam2": 3
-    }
-
-    wijk_prices = {2: 650, 3: 750, 4: 850}
-
-    trip_km = {"Hossein": 120, "Hoshyar": 45, "Masoud": 60}
-
-    for date in date_list:
-        weekday = date.strftime("%A")
-
-        if weekday == "Sunday":  
-            employees = ["Hossein", "Hoshyar", "Masoud"]
-            for emp in employees:
-                if selected_employee != "All" and emp != selected_employee:
-                    continue
-
-                records.append({
-                    "Date": date.date(),
-                    "Day": weekday,
-                    "Employee": emp,
-                    "On/Off": "Off",
-                    "Wijk(s) name": "-",
-                    "Wijk Volume/Segment": "-",
-                    "Wijk Price (€)": "-",
-                    "Trip (KM)": "-",
-                    "Trip Cost (€)": "-",
-                    "Day Earn (€)": "-"
-                })
-            continue
-
-        for emp in ["Hossein", "Hoshyar", "Masoud"]:
-
-            if selected_employee != "All" and emp != selected_employee:
-                continue
-
-            wijks = []
-            onoff = "On"
-
-            # Hossein rules
-            if emp == "Hossein":
-                if date.day == 12:
-                    wijks = []
-                    onoff = "Off"
-                else:
-                    wijks = ["Chaam1", "Chaam4", "Galder1"]
-
-            # Hoshyar rules
-            elif emp == "Hoshyar":
-                if date.day == 12:
-                    wijks = ["Chaam1", "Chaam4", "Galder1"]
-                elif date.day == 13:
-                    wijks = ["Lexmond2"]
-                else:
-                    wijks = []
-                    onoff = "Off"
-
-            # Masoud always works except Sunday
-            elif emp == "Masoud":
-                wijks = ["Rotterdam1", "Rotterdam2"]
-
-            if len(wijks) == 0:
-                onoff = "Off"
-
-            # segments
-            segments = sum(wijk_segments.get(w, 3) for w in wijks) if wijks else 0
-
-            # price per wijk
-            total_price = 0
-            for w in wijks:
-                seg = wijk_segments.get(w, 3)
-                total_price += wijk_prices.get(seg, 750)
-
-            km = trip_km.get(emp, 0) if onoff == "On" else 0
-            trip_cost = km * 0.16
-            wijk_earn = total_price / 26 if onoff == "On" else 0
-            day_earn = wijk_earn + trip_cost if onoff == "On" else 0
-
-            records.append({
-                "Date": date.date(),
-                "Day": weekday,
-                "Employee": emp,
-                "On/Off": onoff,
-                "Wijk(s) name": ", ".join(wijks) if wijks else "-",
-                "Wijk Volume/Segment": segments if segments else "-",
-                "Wijk Price (€)": total_price if total_price else "-",
-                "Trip (KM)": km if km else "-",
-                "Trip Cost (€)": f"€ {trip_cost:.2f}" if km else "-",
-                "Day Earn (€)": f"€ {day_earn:.2f}" if day_earn else "-"
-            })
-
-    return pd.DataFrame(records)
-
-
-
-# ============================================================
-# === 8. TABLE COLORING ======================================
-# ============================================================
-
-def apply_table_colors(df):
-    """Color Sundays red, Off days orange."""
-    def color_row(row):
-        if row["Day"] == "Sunday":
-            return ["background-color:#ffcccc"] * len(row)
-        if row["On/Off"] == "Off":
-            return ["background-color:#ffe6cc"] * len(row)
-        return [""] * len(row)
-    return df.style.apply(color_row, axis=1)
-
-
-
-# ============================================================
-# === 9. MANAGER DASHBOARD (PAYROLL TABLE) ===================
-# ============================================================
+if role == "admin" and menu == "📊 Dashboard":
+    st.title("📊 Admin Dashboard")
+    st.write("Overview of all managers, employees, and payroll analytics will go here.")
+# ==========================================
+# ZONE #9 — MANAGER DASHBOARD
+# ==========================================
 
 if role == "manager" and menu == "📊 Dashboard":
+    st.title("📊 Manager Dashboard")
+    st.write("Here you will see your employees’ performance and payroll data.")
+# ==========================================
+# ZONE #10 — EMPLOYEE DASHBOARD
+# ==========================================
 
-    st.title("📊 Payroll Dashboard")
-
-    employees_list = ["All", "Hossein", "Hoshyar", "Masoud"]
-    selected_emp = st.selectbox("Select Employee", employees_list)
-
-    start_date = datetime(2025, 11, 1)
-    end_date = datetime(2025, 11, 30)
-
-    start, end = st.date_input(
-        "Select Date Range", (start_date, end_date)
-    )
-
-    df = generate_payroll_data(start, end, selected_emp)
-
-    st.dataframe(apply_table_colors(df), use_container_width=True)
-
-
-
-# ============================================================
-# === 10. ADMIN: VIEW ALL PAYROLL ============================
-# ============================================================
-
-if role == "admin" and menu == "📊 View All Payroll":
-
-    st.title("📊 All Payroll Records (System-wide)")
-
-    start_date = st.date_input("Start date", datetime(2025, 11, 1))
-    end_date = st.date_input("End date", datetime(2025, 11, 30))
-
-    df = generate_payroll_data(start_date, end_date, selected_employee="All")
-
-    st.dataframe(apply_table_colors(df), use_container_width=True)
-
-
-
-# ============================================================
-# === 11. EMPLOYEE DASHBOARD ================================
-# ============================================================
-
-if role == "employee" and menu == "📋 My Work":
-
-    st.title("📋 My Work Overview")
-
-    employee_name = st.session_state.username
-
-    st.info(f"Hello **{employee_name}**, here you will later see your real work logs.")
-
-    st.write("This section will be updated when we add real work submission.")
-# ============================================================
-# === 12. MANAGER: ADD EMPLOYEE ===============================
-# ============================================================
-
-if role == "manager" and menu == "➕ Add Employee":
-
-    st.title("➕ Add New Employee")
-
-    with st.form("form_add_employee"):
-        firstname = st.text_input("First Name")
-        lastname = st.text_input("Last Name")
-        address = st.text_input("Address")
-        username_new = st.text_input("Username")
-        password_new = st.text_input("Password", type="password")
-
-        submit_btn = st.form_submit_button("Create Employee")
-
-    if submit_btn:
-
-    if not firstname or not lastname or not username_new or not password_new:
-        st.error("❌ All fields except Address are required.")
-
-    else:
-        hashed_pw = hash_password(password_new)
-
-        result = db_insert("employees", {
-            "firstname": firstname,
-            "lastname": lastname,
-            "address": address,
-            "username": username_new,
-            "password": hashed_pw,
-            "role": "manager"
-        })
-
-        if result:
-            st.success(f"✅ Manager {firstname} {lastname} created successfully!")
-
-            # تغییر صفحه به لیست مدیرها
-            st.session_state.menu = "📋 List Managers"
-            st.experimental_rerun()
-
-
-
-
-# ============================================================
-# === 13. MANAGER: VIEW EMPLOYEES =============================
-# ============================================================
-
-if role == "manager" and menu == "📋 My Employees":
-
-    st.title("📋 My Employees")
-
-    employees = db_select("employees", "?role=eq.employee")
-
-    if not employees:
-        st.info("No employees found yet.")
-    else:
-        df = pd.DataFrame(employees)[["firstname", "lastname", "username"]]
-        st.dataframe(df, use_container_width=True)
-
-
-
-# ============================================================
-# === 14. ADMIN: ADD MANAGER =================================
-# ============================================================
+if role == "employee" and menu == "📊 Dashboard":
+    st.title("📊 Employee Dashboard")
+    st.write("Submit work and see your recent activity here.")
+# ==========================================
+# ZONE #11 — ADMIN: ADD MANAGER
+# ==========================================
 
 if role == "admin" and menu == "➕ Add Manager":
-
+    
     st.title("➕ Add New Manager")
 
     with st.form("form_add_manager"):
@@ -425,19 +280,14 @@ if role == "admin" and menu == "➕ Add Manager":
 
             if result:
                 st.success(f"✅ Manager {firstname} {lastname} created successfully!")
-
-                # Move automatically to list managers
                 st.session_state.menu = "📋 List Managers"
                 st.experimental_rerun()
-
-
-
-# ============================================================
-# === 15. ADMIN: LIST & DELETE MANAGERS =======================
-# ============================================================
+# ==========================================
+# ZONE #12 — ADMIN: LIST MANAGERS
+# ==========================================
 
 if role == "admin" and menu == "📋 List Managers":
-
+    
     st.title("📋 All Managers")
 
     managers = db_select("employees", "?role=eq.manager")
@@ -448,191 +298,216 @@ if role == "admin" and menu == "📋 List Managers":
         df = pd.DataFrame(managers)[["firstname", "lastname", "username"]]
         st.dataframe(df, use_container_width=True)
 
-        st.markdown("---")
-        st.markdown("### 🗑 Delete Manager")
+    st.markdown("---")
+    st.subheader("🗑 Delete Manager")
 
+    if managers:
         usernames = [m["username"] for m in managers]
         selected = st.selectbox("Select Manager", usernames)
-        delete_btn = st.button("Delete Manager")
+        del_btn = st.button("Delete Manager")
 
-        if delete_btn:
-
-            del_result = db_delete("employees", f"?username=eq.{selected}")
-
+        if del_btn:
+            db_delete("employees", f"?username=eq.{selected}")
             st.success(f"Manager '{selected}' deleted.")
+            st.experimental_rerun()
+# ==========================================
+# ZONE #13 — ADD EMPLOYEE (ADMIN + MANAGER)
+# ==========================================
 
+if menu == "➕ Add Employee" and role in ["admin", "manager"]:
+    
+    st.title("➕ Add Employee")
 
+    with st.form("form_add_employee"):
+        firstname = st.text_input("First Name")
+        lastname = st.text_input("Last Name")
+        address = st.text_input("Address")
+        username_new = st.text_input("Username")
+        password_new = st.text_input("Password", type="password")
+        submit_btn = st.form_submit_button("Create Employee")
 
-# ============================================================
-# === 16. EMPLOYEE: SUBMIT DAILY WORK =========================
-# ============================================================
+    if submit_btn:
 
-if role == "employee" and menu == "📝 Submit Day Work":
+        if not firstname or not lastname or not username_new or not password_new:
+            st.error("❌ All fields except Address are required.")
+
+        else:
+            hashed_pw = hash_password(password_new)
+
+            result = db_insert("employees", {
+                "firstname": firstname,
+                "lastname": lastname,
+                "address": address,
+                "username": username_new,
+                "password": hashed_pw,
+                "role": "employee"
+            })
+
+            if result:
+                st.success(f"✅ Employee {firstname} {lastname} created successfully!")
+                st.session_state.menu = "📋 Employee List"
+                st.experimental_rerun()
+# ==========================================
+# ZONE #14 — LIST EMPLOYEES (ADMIN + MANAGER)
+# ==========================================
+
+if menu == "📋 Employee List" and role in ["admin", "manager"]:
+
+    st.title("📋 Employee List")
+
+    employees = db_select("employees", "?role=eq.employee")
+
+    if not employees:
+        st.info("No employees found.")
+    else:
+        df = pd.DataFrame(employees)[["firstname", "lastname", "username"]]
+        st.dataframe(df, use_container_width=True)
+# ==========================================
+# ZONE #15 — EMPLOYEE: SUBMIT WORK
+# ==========================================
+
+if role == "employee" and menu == "📝 Submit Work":
 
     st.title("📝 Submit Daily Work")
 
-    st.info("This feature will be connected to real payroll soon.")
+    employee_username = st.session_state.username
 
     with st.form("submit_work_form"):
-        date_work = st.date_input("Date")
-        wijk_name = st.text_input("Wijk Name")
+        work_date = st.date_input("Date")
+        wijk_name = st.text_input("Wijk Name (e.g. Chaam1)")
         segments = st.number_input("Segments", min_value=1, max_value=10)
         trip_km = st.number_input("Trip KM", min_value=0, max_value=400)
-
-        submit_btn = st.form_submit_button("Submit")
+        submit_btn = st.form_submit_button("Submit Work")
 
     if submit_btn:
-        st.success("✔ Work submitted (simulation, not yet stored)")
-# ============================================================
-# === 17. SUMMARY BOX (FOR MANAGER & ADMIN) ==================
-# ============================================================
+        result = db_insert("work_logs", {
+            "username": employee_username,
+            "date": str(work_date),
+            "wijk": wijk_name,
+            "segments": segments,
+            "trip_km": trip_km
+        })
 
-def parse_euro(x):
-    if isinstance(x, str) and "€" in x:
-        try:
-            return float(x.replace("€", "").strip())
-        except:
-            return 0
-    return 0
+        if result:
+            st.success("✅ Work Submitted Successfully!")
+            st.experimental_rerun()
+# ==========================================
+# ZONE #16 — LOAD PAYROLL DATA
+# ==========================================
 
-def parse_num(x):
-    try:
-        return float(x)
-    except:
-        return 0
+def load_payroll(username_filter=None, start_date=None, end_date=None):
 
+    query = "?select=username,date,wijk,segments,trip_km"
 
-def render_summary(df):
+    if username_filter:
+        query += f"&username=eq.{username_filter}"
 
-    if df is None or df.empty:
-        return
+    if start_date:
+        query += f"&date=gte.{start_date}"
 
-    total_day_earn = df["Day Earn (€)"].apply(parse_euro).sum()
-    total_segments = df["Wijk Volume/Segment"].apply(parse_num).sum()
-    total_km       = df["Trip (KM)"].apply(parse_num).sum()
-    total_trip     = df["Trip Cost (€)"].apply(parse_euro).sum()
+    if end_date:
+        query += f"&date=lte.{end_date}"
 
-    st.markdown("### 📦 Summary Overview")
+    logs = db_select("work_logs", query)
+
+    if not logs:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(logs)
+
+    # Compute
+    df["Day"] = pd.to_datetime(df["date"]).dt.day_name()
+
+    # Wijk Price by segment count
+    def wijk_price(seg):
+        if seg == 2: return 650
+        if seg == 3: return 750
+        if seg == 4: return 850
+        return 500 + 100 * seg
+
+    df["Wijk Price (€)"] = df["segments"].apply(wijk_price)
+
+    df["Trip Cost (€)"] = df["trip_km"] * 0.16
+    df["Wijk Earn (€)"] = df["Wijk Price (€)"] / 26
+    df["Day Earn (€)"]  = df["Wijk Earn (€)"] + df["Trip Cost (€)"]
+
+    return df
+# ==========================================
+# ZONE #17 — PAYROLL DASHBOARD (ADMIN + MANAGER)
+# ==========================================
+
+if menu == "📊 Dashboard" and role in ["admin", "manager"]:
+
+    st.title("📊 Payroll Dashboard")
+
+    # ---- Filters ----
+    employees = db_select("employees", "?role=eq.employee")
+    employee_names = ["All"] + [e["username"] for e in employees]
+
+    selected_user = st.selectbox("Select Employee", employee_names)
+    start_date = st.date_input("Start Date", datetime.now() - timedelta(days=30))
+    end_date   = st.date_input("End Date", datetime.now())
+
+    # ---- Load Data ----
+    df = load_payroll(
+        None if selected_user == "All" else selected_user,
+        start_date,
+        end_date
+    )
+
+    if df.empty:
+        st.info("No payroll data found for this date range.")
+        st.stop()
+
+    payroll_df = df[[
+        "date", "Day", "username", "wijk", "segments",
+        "Wijk Price (€)", "trip_km", "Trip Cost (€)",
+        "Wijk Earn (€)", "Day Earn (€)"
+    ]]
+
+    # ---- Coloring ----
+    styled_df = payroll_df.style.apply(color_rows, axis=1)
+    st.dataframe(styled_df, use_container_width=True)
+
+    st.markdown("---")
+# ==========================================
+# ZONE #18 — SUMMARY BOX
+# ==========================================
+
+    total_earn       = payroll_df["Day Earn (€)"].sum()
+    total_segments   = payroll_df["segments"].sum()
+    total_trip_km    = payroll_df["trip_km"].sum()
+    total_trip_cost  = payroll_df["Trip Cost (€)"].sum()
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Earn (€)", f"€ {total_day_earn:,.2f}")
-    col2.metric("Total Segments", f"{total_segments:,.0f}")
-    col3.metric("Total Trip (KM)", f"{total_km:,.0f} km")
-    col4.metric("Total Trip Cost (€)", f"€ {total_trip:,.2f}")
 
+    col1.metric("Total Earn (€)", f"€ {total_earn:,.2f}")
+    col2.metric("Total Segments", total_segments)
+    col3.metric("Total Trip (KM)", total_trip_km)
+    col4.metric("Total Trip Cost (€)", f"€ {total_trip_cost:,.2f}")
+# ==========================================
+# ZONE #19 — TABLE COLORING RULES
+# ==========================================
 
+def color_rows(row):
 
-# ============================================================
-# === 18. MANAGER SUMMARY CALL ===============================
-# ============================================================
+    # Sunday → RED
+    if row["Day"] == "Sunday":
+        return ["background-color: #ffcccc"] * len(row)
 
-if role == "manager" and menu == "📊 Dashboard":
+    # OFF DAY → No wijk or 0 segments
+    if (row["wijk"] == "") or (row["segments"] == 0):
+        return ["background-color: #ffe5cc"] * len(row)
 
-    df_summary = df
-    render_summary(df_summary)
+    # Normal day → white
+    return ["background-color: white"] * len(row)
+# ==========================================
+# ZONE #20 — FOOTER
+# ==========================================
 
-
-
-# ============================================================
-# === 19. ADMIN SUMMARY CALL (ALL PAYROLL) ===================
-# ============================================================
-
-if role == "admin" and menu == "📊 View All Payroll":
-
-    df_summary = df
-    render_summary(df_summary)
-
-
-
-# ============================================================
-# === 20. SYSTEM SETTINGS (ADMIN) =============================
-# ============================================================
-
-if role == "admin" and menu == "⚙ System Settings":
-
-    st.title("⚙ System Settings")
-
-    st.write("""
-    Here you can manage advanced system-level options in the future:
-    - Change admin password  
-    - View audit logs  
-    - Backup system  
-    - Add new global configuration  
-    """)
-
-
-
-# ============================================================
-# === 21. USER PROFILE (EMPLOYEE) ============================
-# ============================================================
-
-if role == "employee" and menu == "⚙ Profile":
-
-    employee_username = st.session_state.username
-    employee = get_user_by_username(employee_username)
-
-    st.title("👤 My Profile")
-
-    st.write(f"**First Name:** {employee['firstname']}")
-    st.write(f"**Last Name:** {employee['lastname']}")
-    st.write(f"**Username:** {employee['username']}")
-    st.write(f"**Address:** {employee['address']}")
-    st.write(f"**Role:** {employee['role']}")
-
-
-
-# ============================================================
-# === 22. GLOBAL CSS FOR MOBILE UI ===========================
-# ============================================================
-
-st.markdown(
-    """
-<style>
-
-html, body, [class*="css"] {
-    font-size: 15px !important;
-}
-
-/* Buttons */
-.stButton > button {
-    width: 100%;
-    padding: 10px;
-    font-size: 16px;
-    border-radius: 10px;
-}
-
-/* Dataframe scroll smooth */
-[data-testid="stDataFrame"] div {
-    scrollbar-width: thin;
-}
-
-/* Sticky header area for filters */
-.sticky-filter {
-    position: sticky;
-    top: 0;
-    z-index: 999;
-    background: #f8f9fa;
-    padding: 10px;
-    border-radius: 10px;
-}
-
-</style>
-""",
-    unsafe_allow_html=True
-)
-
-
-
-# ============================================================
-# === 23. FOOTER =============================================
-# ============================================================
-
-st.markdown(
-    """
+st.markdown("""
 <br><br>
-<div style='text-align:center; color:gray; font-size:13px;'>
-    Delvero Payroll System — Powered by Streamlit & Supabase  
-</div>
-""",
-    unsafe_allow_html=True
-)
+<center style='color:gray; font-size:13px;'>
+Delvero Payroll System — Powered by Streamlit & Supabase
+</center>
+""", unsafe_allow_html=True)
