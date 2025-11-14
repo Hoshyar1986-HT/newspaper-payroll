@@ -73,6 +73,12 @@ def get_user_by_username(username):
 # === 5. LOGIN PAGE ==========================================
 # ============================================================
 
+# DEBUG TEST - REMOVE LATER
+st.write("TEST SUPABASE RESPONSE:")
+test = db_select("employees", "?username=eq.administrator")
+st.write(test)
+
+
 if "logged_in" not in st.session_state:
 
     st.title("🗞️ Delvero Payroll Login")
