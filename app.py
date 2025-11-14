@@ -275,7 +275,6 @@ if role == "admin" and menu == "➕ Add Manager":
     if submit_btn:
         if not firstname or not lastname or not username_new or not password_new:
             st.error("❌ All fields except Address are required.")
-
         else:
             hashed_pw = hash_password(password_new)
             db_insert("employees", {
@@ -290,10 +289,13 @@ if role == "admin" and menu == "➕ Add Manager":
             st.success(f"Manager {firstname} {lastname} created successfully!")
             st.session_state.manager_created = True
 
+    # After creation → change menu WITHOUT RERUN
     if st.session_state.manager_created:
         st.session_state.manager_created = False
         st.session_state.menu = "📋 List Managers"
-        st.experimental_rerun()
+        st.stop()   # SAFE EXIT – avoids rerun crash
+
+
 # ============================
 # ZONE 12 — LIST MANAGERS
 # ============================
