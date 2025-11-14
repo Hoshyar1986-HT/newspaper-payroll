@@ -16,8 +16,11 @@ st.set_page_config(
 
 
 # ============================================================
-# === 2. SUPABASE CONNECTION =================================
+# === 2. SUPABASE CONFIG (REST API) ==========================
 # ============================================================
+
+import requests
+import json
 
 SUPABASE_URL = "https://qggrtnyfgvlrmoopjdte.supabase.co"
 SUPABASE_ANON_KEY = (
@@ -26,18 +29,28 @@ SUPABASE_ANON_KEY = (
     "WCSXtc_l5aNndAOTagLW-LWQPePIWPlLNRkWx_MNacI"
 )
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+SUPABASE_HEADERS = {
+    "apikey": SUPABASE_ANON_KEY,
+    "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+    "Content-Type": "application/json"
+}
 
 
 # ============================================================
-# === 3. HELPER FUNCTIONS ====================================
+# === 3. DATABASE FUNCTIONS (REST API) =======================
 # ============================================================
 
-def hash_password(password: str):
-    return hashlib.sha256(password.encode()).hexdigest()
+def db_insert(table, data):
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    response = requests.post(url, headers=SUPABASE_HEADERS, data=json.dumps(data))
+    return response.json()
 
-def check_password(input_pw, stored_hash):
-    return hash_password(input_pw) == stored_hash
+
+def db_select(table, filters=""):
+    url = f"{SUPABASE_URL}/rest/v1/{table}{filters}"
+    response = requests.get(url, headers=SUPABASE_HEADERS)
+    return response.json()
+
 
 def add_employee_to_supabase(firstname, lastname, address, username, password):
     hashed = hash_password(password)
@@ -49,13 +62,13 @@ def add_employee_to_supabase(firstname, lastname, address, username, password):
         "password": hashed,
         "role": "employee"
     }
-    return supabase.table("employees").insert(data).execute()
+    return db_insert("employees", data)
+
 
 def get_employee_by_username(username):
-    res = supabase.table("employees").select("*").eq("username", username).execute()
-    if res.data:
-        return res.data[0]
-    return None
+    result = db_select("employees", f"?username=eq.{username}")
+    return result[0] if result else None
+
 
 
 # ============================================================
