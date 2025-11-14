@@ -423,7 +423,12 @@ if role == "admin" and menu == "➕ Add Manager":
                 "role": "manager"
             })
 
-            st.success(f"✅ Manager {firstname} {lastname} created successfully!")
+            if result:
+                st.success(f"✅ Manager {firstname} {lastname} created successfully!")
+
+                # Move automatically to list managers
+                st.session_state.menu = "📋 List Managers"
+                st.experimental_rerun()
 
 
 
