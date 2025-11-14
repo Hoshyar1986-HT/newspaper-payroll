@@ -297,7 +297,7 @@ if role == "admin" and menu == "➕ Add Manager":
 
 
 # ============================
-# ZONE 12 — LIST MANAGERS
+# ZONE 12 — LIST MANAGERS (FINAL SAFE VERSION)
 # ============================
 
 if role == "admin" and menu == "📋 List Managers":
@@ -328,9 +328,11 @@ if role == "admin" and menu == "📋 List Managers":
             st.success(f"Manager '{selected}' deleted.")
             st.session_state.delete_manager_flag = True
 
+    # SAFE EXIT instead of rerun
     if st.session_state.delete_manager_flag:
         st.session_state.delete_manager_flag = False
-        st.experimental_rerun()
+        st.stop()  # ← این خط مشکل را ۱۰۰٪ حل می‌کند
+
 # ============================
 # ZONE 13 — ADD EMPLOYEE
 # ============================
