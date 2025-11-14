@@ -20,7 +20,11 @@ st.set_page_config(
 # ============================================================
 
 SUPABASE_URL = "https://qggrtnyfgvlrmoopjdte.supabase.co"
-SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnZ3J0bnlmZ3Zscm1vb3BqZHRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxMTYxMjQsImV4cCI6MjA3ODY5MjEyNH0.WCSXtc_l5aNndAOTagLW-LWQPePIWPlLNRkWx_MNacI"
+SUPABASE_ANON_KEY = (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnZ3J0bnlmZ3Zscm1vb3BqZHRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxMTYxMjQsImV4cCI6MjA3ODY5MjEyNH0."
+    "WCSXtc_l5aNndAOTagLW-LWQPePIWPlLNRkWx_MNacI"
+)
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
@@ -30,16 +34,12 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 # ============================================================
 
 def hash_password(password: str):
-    """Creates a SHA256 hash for a password."""
     return hashlib.sha256(password.encode()).hexdigest()
 
-
-def check_password(input_password, stored_hash):
-    return hash_password(input_password) == stored_hash
-
+def check_password(input_pw, stored_hash):
+    return hash_password(input_pw) == stored_hash
 
 def add_employee_to_supabase(firstname, lastname, address, username, password):
-    """Insert new employee into Supabase"""
     hashed = hash_password(password)
     data = {
         "firstname": firstname,
@@ -51,12 +51,10 @@ def add_employee_to_supabase(firstname, lastname, address, username, password):
     }
     return supabase.table("employees").insert(data).execute()
 
-
 def get_employee_by_username(username):
-    """Fetch user from Supabase"""
-    result = supabase.table("employees").select("*").eq("username", username).execute()
-    if result.data:
-        return result.data[0]
+    res = supabase.table("employees").select("*").eq("username", username).execute()
+    if res.data:
+        return res.data[0]
     return None
 
 
@@ -89,7 +87,7 @@ if "logged_in" not in st.session_state:
 # === 5. SIDEBAR MENU ========================================
 # ============================================================
 
-if "logged_in" in st.session_state and st.session_state.logged_in:
+if st.session_state.get("logged_in"):
 
     user = st.session_state.username
     role = st.session_state.role
@@ -111,28 +109,19 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
 # === 6. FILTER BAR (MANAGER DASHBOARD) ======================
 # ============================================================
 
-if role == "manager" and menu == "📊 Dashboard":
+if st.session_state.get("role") == "manager" and menu == "📊 Dashboard":
 
     st.markdown("""
-    <div style="
-        position:sticky;
-        top:0;
-        background:#f0f2f6;
-        padding:18px;
-        border-radius:10px;
-        z-index:999;
-        margin-bottom:10px;
-    ">
+    <div style="position:sticky; top:0; background:#f0f2f6;
+                 padding:18px; border-radius:10px; z-index:999;">
     """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([1, 1.1, 1.6])
+    col1, col2, col3 = st.columns([1, 1.2, 1.6])
 
-    # Employee Selector Placeholder (will fill after DF load)
     with col1:
         st.markdown("#### 👤 Employee")
         employee_selector_placeholder = st.empty()
 
-    # Month selector
     with col2:
         st.markdown("#### 📅 Month")
         month_selector = st.selectbox(
@@ -141,49 +130,38 @@ if role == "manager" and menu == "📊 Dashboard":
             label_visibility="collapsed"
         )
 
-    # Date range placeholder
     with col3:
         st.markdown("#### 🗓️ Date Range")
         date_range_placeholder = st.empty()
 
     st.markdown("</div>", unsafe_allow_html=True)
+
+
 # ============================================================
-# === 7. PAYROLL DATA GENERATOR (SIMULATED DATA) =============
+# === 7. PAYROLL DATA GENERATOR ===============================
 # ============================================================
 
 def generate_payroll_data(start_date, end_date, selected_employee):
-    """Generate simulated payroll data based on your rules."""
-
     date_list = pd.date_range(start=start_date, end=end_date)
-
     records = []
 
-    # Prices and segments for each wijk
     wijk_segments = {
         "Chaam1": 3, "Chaam4": 4, "Galder1": 2,
-        "Lexmond2": 3,
-        "Rotterdam1": 3, "Rotterdam2": 3
+        "Lexmond2": 3, "Rotterdam1": 3, "Rotterdam2": 3
     }
-
     wijk_prices = {2: 650, 3: 750, 4: 850}
 
-    # Trip km for each employee
-    trip_km = {
-        "Hossein": 120,
-        "Hoshyar": 45,
-        "Masoud": 60
-    }
+    trip_km = {"Hossein": 120, "Hoshyar": 45, "Masoud": 60}
 
     for date in date_list:
 
         weekday = date.strftime("%A")
 
-        # Skip Sundays
+        # Sunday Off
         if weekday == "Sunday":
             for emp in ["Hossein", "Hoshyar", "Masoud"]:
                 if selected_employee != "All" and emp != selected_employee:
                     continue
-
                 records.append({
                     "Date": date.date(),
                     "Day": weekday,
@@ -198,27 +176,21 @@ def generate_payroll_data(start_date, end_date, selected_employee):
                 })
             continue
 
-        # Payroll logic per employee
         for emp in ["Hossein", "Hoshyar", "Masoud"]:
-
             if selected_employee != "All" and emp != selected_employee:
                 continue
 
-            # Default: employee works
             onoff = "On"
-
-            # Wijk assignments
             wijks = []
 
-            # Hossein → 1 to 13 Nov except 12 Off
+            # Logic
             if emp == "Hossein":
                 if date.day == 12:
-                    wijks = []
                     onoff = "Off"
+                    wijks = []
                 else:
                     wijks = ["Chaam1", "Chaam4", "Galder1"]
 
-            # Hoshyar → off except 12 + 13
             elif emp == "Hoshyar":
                 if date.day == 12:
                     wijks = ["Chaam1", "Chaam4", "Galder1"]
@@ -228,35 +200,26 @@ def generate_payroll_data(start_date, end_date, selected_employee):
                     wijks = []
                     onoff = "Off"
 
-            # Masoud → always works (except Sundays)
             elif emp == "Masoud":
                 wijks = ["Rotterdam1", "Rotterdam2"]
 
-            # WORKED WIKJS?
             if len(wijks) == 0:
                 onoff = "Off"
 
-            # Segment total
             segments = sum(wijk_segments.get(w, 3) for w in wijks) if wijks else 0
 
-            # Price total
-            wijk_earn_list = []
-            total_wijk_price = 0
-
+            total_price = 0
+            wijk_price_readable = []
             for w in wijks:
                 seg = wijk_segments.get(w, 3)
                 price = wijk_prices.get(seg, 750)
-                wijk_earn_list.append(f"{w} ({price}€)")
-                total_wijk_price += price
+                total_price += price
+                wijk_price_readable.append(f"{w} ({price}€)")
 
-            # Trip logic
             km = trip_km.get(emp, 0) if onoff == "On" else 0
             trip_cost = km * 0.16
 
-            # Wijk Earn per day
-            wijk_earn = total_wijk_price / 26 if onoff == "On" else 0
-
-            # Total daily earn
+            wijk_earn = total_price / 26 if onoff == "On" else 0
             day_earn = wijk_earn + trip_cost if onoff == "On" else 0
 
             records.append({
@@ -266,7 +229,7 @@ def generate_payroll_data(start_date, end_date, selected_employee):
                 "On/Off": onoff,
                 "Wijk(s) name": ", ".join(wijks) if wijks else "-",
                 "Wijk Volume/Segment": segments if segments else "-",
-                "Wijk Price (€)": total_wijk_price if total_wijk_price else "-",
+                "Wijk Price (€)": total_price if total_price else "-",
                 "Trip (KM)": km if km else "-",
                 "Trip Cost (€)": f"€ {trip_cost:.2f}" if km else "-",
                 "Day Earn (€)": f"€ {day_earn:.2f}" if day_earn else "-"
@@ -276,32 +239,30 @@ def generate_payroll_data(start_date, end_date, selected_employee):
 
 
 # ============================================================
-# === 8. TABLE FORMATTING & COLORING =========================
+# === 8. TABLE FORMATTING ====================================
 # ============================================================
 
 def apply_table_colors(df):
-    """Color rows: Sunday red, Off orange."""
+
     def color_row(row):
         if row["Day"] == "Sunday":
-            return ["background-color: #ffb3b3"] * len(row)
+            return ["background-color:#ffcccc"] * len(row)
         elif row["On/Off"] == "Off":
-            return ["background-color: #ffd9b3"] * len(row)
+            return ["background-color:#ffe6cc"] * len(row)
         return [""] * len(row)
 
     return df.style.apply(color_row, axis=1)
 
 
 # ============================================================
-# === 9. RENDER DASHBOARD TABLE ==============================
+# === 9. RENDER PAYROLL DATAFRAME ============================
 # ============================================================
 
-if role == "manager" and menu == "📊 Dashboard":
+if st.session_state.get("role") == "manager" and menu == "📊 Dashboard":
 
-    # Apply employee selector
-    employees = ["All", "Hossein", "Hoshyar, ", "Masoud"]
+    employees = ["All", "Hossein", "Hoshyar", "Masoud"]
     selected_emp = employee_selector_placeholder.selectbox("", employees)
 
-    # Date range
     start_default = datetime(2025, 11, 1)
     end_default = datetime(2025, 11, 30)
 
@@ -315,41 +276,37 @@ if role == "manager" and menu == "📊 Dashboard":
         start_date, end_date = date_range
         df = generate_payroll_data(start_date, end_date, selected_emp)
 
-        st.subheader("📊 Payroll Report")
+        # Wrapper Function
+        def render_dashboard_view(df):
+            st.subheader("📊 Payroll Report")
+            st.dataframe(apply_table_colors(df), use_container_width=True)
+            st.session_state.current_df = df
+
         render_dashboard_view(df)
 
-# ============================================================
-# === 10. DASHBOARD DISPLAY WRAPPER ==========================
-# ============================================================
-
-def render_dashboard_view(df):
-    """Main layout for payroll dashboard."""
-    st.subheader("📊 Payroll Report")
-
-    # Show table
-    st.dataframe(apply_table_colors(df), use_container_width=True)
-
-    # Store DF for summary
-    st.session_state.current_df = df
 
 # ============================================================
-# === 11. SUMMARY BOX (TOTALS) ===============================
+# === 10. DASHBOARD MAIN VIEW WRAPPER ========================
 # ============================================================
 
-if role == "manager" and menu == "📊 Dashboard":
+# Already handled inside render_dashboard_view()
 
-    df = st.session_state.get("current_df", None)
+
+# ============================================================
+# === 11. SUMMARY BOX ========================================
+# ============================================================
+
+if st.session_state.get("role") == "manager" and menu == "📊 Dashboard":
+
+    df = st.session_state.get("current_df")
 
     if df is not None:
 
-        # Safe Parsers
         def parse_euro(x):
-            if isinstance(x, str) and "€" in x:
-                try:
-                    return float(x.replace("€", "").strip())
-                except:
-                    return 0
-            return 0
+            try:
+                return float(x.replace("€", "").strip())
+            except:
+                return 0
 
         def parse_num(x):
             try:
@@ -357,7 +314,6 @@ if role == "manager" and menu == "📊 Dashboard":
             except:
                 return 0
 
-        # Totals
         total_day_earn = df["Day Earn (€)"].apply(parse_euro).sum()
         total_segments = df["Wijk Volume/Segment"].apply(parse_num).sum()
         total_km = df["Trip (KM)"].apply(parse_num).sum()
@@ -366,7 +322,6 @@ if role == "manager" and menu == "📊 Dashboard":
         st.markdown("### 📦 Summary Overview")
 
         colA, colB, colC, colD = st.columns(4)
-
         colA.metric("Total Earn (€)", f"€ {total_day_earn:,.2f}")
         colB.metric("Total Segments", f"{total_segments:,.0f}")
         colC.metric("Total Trip (KM)", f"{total_km:,.0f} km")
@@ -374,15 +329,14 @@ if role == "manager" and menu == "📊 Dashboard":
 
 
 # ============================================================
-# === 12. ADD EMPLOYEE PAGE (REAL SUPABASE) ==================
+# === 12. ADD EMPLOYEE PAGE ==================================
 # ============================================================
 
-if role == "manager" and menu == "➕ Add Employee":
+if st.session_state.get("role") == "manager" and menu == "➕ Add Employee":
 
     st.title("➕ Add New Employee")
 
     with st.form("form_add_emp"):
-
         firstname = st.text_input("First Name")
         lastname = st.text_input("Last Name")
         address = st.text_input("Address")
@@ -394,22 +348,16 @@ if role == "manager" and menu == "➕ Add Employee":
         submit_btn = st.form_submit_button("Add Employee")
 
     if submit_btn:
+
         if not firstname or not lastname or not username_new or not password_new:
             st.error("❌ All fields except Address are required.")
         else:
-            hashed_pw = hash_password(password_new)
-
-            response = supabase.table("employees").insert({
-                "firstname": firstname,
-                "lastname": lastname,
-                "address": address,
-                "username": username_new,
-                "password": hashed_pw,
-                "role": "employee"
-            }).execute()
-
+            response = add_employee_to_supabase(
+                firstname, lastname, address,
+                username_new, password_new
+            )
             if response.data:
-                st.success(f"✅ Employee **{firstname} {lastname}** added successfully!")
+                st.success(f"✅ Employee {firstname} {lastname} added successfully!")
             else:
                 st.error("❌ Failed to add employee.")
 
@@ -418,45 +366,33 @@ if role == "manager" and menu == "➕ Add Employee":
 # === 13. SETTINGS PAGE ======================================
 # ============================================================
 
-if role == "manager" and menu == "⚙️ Settings":
+if st.session_state.get("role") == "manager" and menu == "⚙️ Settings":
 
     st.title("⚙️ Settings")
 
     st.markdown("""
-    Settings page will later include:
+    Settings will include later:
     - Edit Employee
     - Delete Employee
-    - Create Wijk
-    - Edit Wijk
+    - Manage Wijk Database
     - Change Manager Password
     """)
 
 
 # ============================================================
-# === 14. GLOBAL CSS (UI Enhancements) =======================
+# === 14. GLOBAL CSS =========================================
 # ============================================================
 
 st.markdown("""
 <style>
-
 html, body, [class*="css"] {
     font-size: 14px !important;
 }
-
-/* Button styling */
-.stButton>button {
+.stButton > button {
     width: 100%;
-    font-size: 16px;
-    padding: 8px 0;
-    border-radius: 10px;
+    font-size:16px;
+    padding:8px 0;
+    border-radius:10px;
 }
-
-/* Sticky filter bar */
-.filter-bar {
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-}
-
 </style>
 """, unsafe_allow_html=True)
