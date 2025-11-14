@@ -72,10 +72,7 @@ def get_user_by_username(username):
 # ============================================================
 # === 5. LOGIN PAGE ==========================================
 # ============================================================
-st.write("RAW PASSWORD INPUT:")
-raw = st.text_input("Test Password Input (for debugging)", type="password")
-st.write("Your input repr:", repr(raw))
-st.write("Hash of your input:", hash_password(raw))
+
 
 if "logged_in" not in st.session_state:
 
