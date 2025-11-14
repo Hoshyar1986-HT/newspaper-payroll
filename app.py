@@ -392,11 +392,12 @@ if role == "employee" and menu == "📝 Submit Work":
             st.success("✅ Work Submitted Successfully!")
             st.experimental_rerun()
 # ==========================================
-# ZONE #16 — LOAD PAYROLL DATA
+# ZONE #16 — LOAD PAYROLL DATA (FINAL + FIXED)
 # ==========================================
 
 def load_payroll(username_filter=None, start_date=None, end_date=None):
 
+    # Build query
     query = "?select=username,date,wijk,segments,trip_km"
 
     if username_filter:
@@ -408,26 +409,40 @@ def load_payroll(username_filter=None, start_date=None, end_date=None):
     if end_date:
         query += f"&date=lte.{end_date}"
 
+    # Fetch data from Supabase
     logs = db_select("work_logs", query)
 
-    if not logs:
+    # ---- SAFETY CHECK (very important) ----
+    # Supabase may return: None, [], or [{}]
+    if not logs or logs == [{}]:
         return pd.DataFrame()
 
+    # Convert to DataFrame
     df = pd.DataFrame(logs)
 
-    # Compute
+    # Ensure required columns exist
+    required_cols = ["username", "date", "wijk", "segments", "trip_km"]
+    for col in required_cols:
+        if col not in df.columns:
+            df[col] = None
+
+    # Convert date to weekday
     df["Day"] = pd.to_datetime(df["date"]).dt.day_name()
 
-    # Wijk Price by segment count
+    # ---- Wijk Price Based on Segments ----
     def wijk_price(seg):
         if seg == 2: return 650
         if seg == 3: return 750
         if seg == 4: return 850
-        return 500 + 100 * seg
+        # fallback if someone enters 1 or >4
+        return 500 + 100 * int(seg)
 
-    df["Wijk Price (€)"] = df["segments"].apply(wijk_price)
+    df["Wijk Price (€)"] = df["segments"].astype(float).apply(wijk_price)
 
-    df["Trip Cost (€)"] = df["trip_km"] * 0.16
+    # ---- Trip Cost ----
+    df["Trip Cost (€)"] = df["trip_km"].astype(float) * 0.16
+
+    # ---- Daily Earnings ----
     df["Wijk Earn (€)"] = df["Wijk Price (€)"] / 26
     df["Day Earn (€)"]  = df["Wijk Earn (€)"] + df["Trip Cost (€)"]
 
