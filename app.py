@@ -523,10 +523,25 @@ def load_payroll(username_filter=None, start_date=None, end_date=None):
     df["Day Earn (€)"] = df["Wijk Earn (€)"] + df["Trip Cost (€)"]
 
     return df
+# ==========================================
+# ZONE #17 — TABLE COLORING RULES
+# ==========================================
 
+def color_rows(row):
+
+    # Sunday → RED
+    if row["Day"] == "Sunday":
+        return ["background-color: #ffcccc"] * len(row)
+
+    # OFF DAY → No wijk or 0 segments
+    if (row["wijk"] == "") or (row["segments"] == 0):
+        return ["background-color: #ffe5cc"] * len(row)
+
+    # Normal day → white
+    return ["background-color: white"] * len(row)
 
 # ==========================================
-# ZONE #17 — PAYROLL DASHBOARD (ADMIN + MANAGER)
+# ZONE #18 — PAYROLL DASHBOARD (ADMIN + MANAGER)
 # ==========================================
 
 if menu == "📊 Dashboard" and role in ["admin", "manager"]:
@@ -564,7 +579,7 @@ if menu == "📊 Dashboard" and role in ["admin", "manager"]:
 
     st.markdown("---")
 # ==========================================
-# ZONE #18 — SUMMARY BOX
+# ZONE #19 — SUMMARY BOX
 # ==========================================
 
     total_earn       = payroll_df["Day Earn (€)"].sum()
@@ -578,22 +593,7 @@ if menu == "📊 Dashboard" and role in ["admin", "manager"]:
     col2.metric("Total Segments", total_segments)
     col3.metric("Total Trip (KM)", total_trip_km)
     col4.metric("Total Trip Cost (€)", f"€ {total_trip_cost:,.2f}")
-# ==========================================
-# ZONE #19 — TABLE COLORING RULES
-# ==========================================
 
-def color_rows(row):
-
-    # Sunday → RED
-    if row["Day"] == "Sunday":
-        return ["background-color: #ffcccc"] * len(row)
-
-    # OFF DAY → No wijk or 0 segments
-    if (row["wijk"] == "") or (row["segments"] == 0):
-        return ["background-color: #ffe5cc"] * len(row)
-
-    # Normal day → white
-    return ["background-color: white"] * len(row)
 # ==========================================
 # ZONE #20 — FOOTER
 # ==========================================
