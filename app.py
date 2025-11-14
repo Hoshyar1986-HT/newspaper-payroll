@@ -199,71 +199,55 @@ if "logged_in" in st.session_state and st.session_state.logged_in:
         st.title("📊 Manager Dashboard")
         df = generate_detailed_data()
 
-        # ----------------------- FILTER BAR -----------------------
-        st.markdown("""
-        <div style="
-            position:sticky;
-            top:0;
-            background:#f0f2f6;
-            padding:15px;
-            border-radius:10px;
-            z-index:999;
-        ">
-        """, unsafe_allow_html=True)
+        # ----------------------- FILTER BAR (Improved Layout) -----------------------
+st.markdown("""
+<div style="
+    position:sticky;
+    top:0;
+    background:#f0f2f6;
+    padding:18px;
+    border-radius:10px;
+    z-index:999;
+">
+""", unsafe_allow_html=True)
 
-        st.markdown("### 🔍 Filters")
+col1, col2, col3 = st.columns([1, 1.2, 1.6])
 
-        col1, col2, col3 = st.columns([1.2, 2, 1])
+# ------ EMPLOYEE SELECTOR ------
+with col1:
+    st.markdown("### 👤 Employee")
+    employees = df["Employee_raw"].unique().tolist()
+    employee_selection = st.selectbox(
+        "",
+        ["All"] + employees,
+        index=0,
+        label_visibility="collapsed"
+    )
 
-        # ------ Month Selector ------
-        with col1:
-            month_option = st.selectbox(
-                "Month",
-                ["Whole Range", "November 2025"],
-                index=0,
-                label_visibility="collapsed"
-            )
+# ------ MONTH SELECTOR (Improved) ------
+with col2:
+    st.markdown("### 📅 Month & Year")
+    month_option = st.selectbox(
+        "",
+        ["Whole Range", "November 2025"],
+        index=0,
+        label_visibility="collapsed"
+    )
 
-        # ------ Date Range ------
-        with col2:
-            min_date = pd.to_datetime(df["Date_raw"]).min().date()
-            max_date = pd.to_datetime(df["Date_raw"]).max().date()
+# ------ CUSTOM DATE RANGE ------
+with col3:
+    st.markdown("### 🗓️ Date Range")
+    min_date = pd.to_datetime(df["Date_raw"]).min().date()
+    max_date = pd.to_datetime(df["Date_raw"]).max().date()
 
-            start_date, end_date = st.date_input(
-                "Date Range:",
-                [min_date, max_date],
-                label_visibility="collapsed"
-            )
+    start_date, end_date = st.date_input(
+        "",
+        [min_date, max_date],
+        label_visibility="collapsed"
+    )
 
-        # ------ Employee Selector ------
-        with col3:
-            employees = df["Employee_raw"].unique().tolist()
-            employee_selection = st.selectbox(
-                "Employee",
-                ["All"] + employees,
-                index=0,
-                label_visibility="collapsed"
-            )
+st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        # ----------------------- Apply Filters -----------------------
-        if month_option == "November 2025":
-            start_date = datetime(2025, 11, 1).date()
-            end_date = datetime(2025, 11, 30).date()
-
-        if employee_selection == "All":
-            selected_employees = employees
-        else:
-            selected_employees = [employee_selection]
-
-        mask = (
-            df["Employee_raw"].isin(selected_employees) &
-            (pd.to_datetime(df["Date_raw"]).dt.date >= start_date) &
-            (pd.to_datetime(df["Date_raw"]).dt.date <= end_date)
-        )
-
-        display_df = df[mask].drop(columns=["Date_raw", "Employee_raw"])
 
         # ----------------------- TABLE -----------------------
         st.dataframe(
