@@ -237,10 +237,14 @@ if role == "manager" and menu == "📊 Manager Dashboard":
         df = pd.DataFrame(my_emps)[["firstname", "lastname", "username"]]
         st.dataframe(df, use_container_width=True)
 # ==========================================
-# ZONE 10 — ADD MANAGER (ADMIN)
+# ZONE 10 — ADD MANAGER (ADMIN) — FINAL STABLE VERSION
 # ==========================================
 if role == "admin" and menu == "➕ Add Manager":
+
     st.title("➕ Add New Manager")
+
+    if "manager_created" not in st.session_state:
+        st.session_state.manager_created = False
 
     with st.form("form_add_manager"):
         fn = st.text_input("First Name")
@@ -252,10 +256,12 @@ if role == "admin" and menu == "➕ Add Manager":
 
     if submit:
         if not fn or not ln or not uname or not pw:
-            st.error("❌ Required fields cannot be empty.")
+            st.error("❌ All required fields must be filled.")
         else:
             hashed = hash_password(pw)
-            db_insert("employees", {
+
+            # Insert into Supabase
+            result = db_insert("employees", {
                 "firstname": fn,
                 "lastname": ln,
                 "address": addr,
@@ -263,8 +269,22 @@ if role == "admin" and menu == "➕ Add Manager":
                 "password": hashed,
                 "role": "manager"
             })
+
+            # Check if Supabase returned an error
+            if result is None:
+                st.error("❌ Failed to create manager. See logs above.")
+                st.stop()
+
+            # Success
+            st.session_state.manager_created = True
             st.success(f"Manager '{uname}' created successfully!")
-            st.stop()
+
+    # Redirect ONLY AFTER a successful insert
+    if st.session_state.manager_created:
+        st.session_state.manager_created = False
+        st.session_state.menu = "📋 Managers"
+        st.experimental_rerun()
+
 # ==========================================
 # ZONE 11 — MANAGERS LIST (VIEW / DELETE / EDIT)
 # ==========================================
