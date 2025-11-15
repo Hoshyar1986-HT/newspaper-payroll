@@ -143,7 +143,7 @@ if not st.session_state.logged_in:
 
 
 # ==========================================
-# ZONE 7 — SIDEBAR & NAVIGATION
+# ZONE 7 — SIDEBAR & NAVIGATION (FIXED FOR REDIRECT)
 # ==========================================
 
 role = st.session_state.role
@@ -154,9 +154,8 @@ st.sidebar.write(f"👤 **{username}**")
 st.sidebar.write(f"🔑 **{role.capitalize()}**")
 st.sidebar.markdown("---")
 
-# ADMIN MENU
 if role == "admin":
-    menu = st.sidebar.radio("Navigation", [
+    menu_options = [
         "📊 Admin Dashboard",
         "➕ Add Manager",
         "📋 Managers",
@@ -164,37 +163,46 @@ if role == "admin":
         "👥 Employees",
         "🗂 Wijk Management",
         "📊 Payroll",
-        "⚙ Settings"
-    ])
+        "⚙ Settings",
+    ]
 
-# MANAGER MENU
 elif role == "manager":
-    menu = st.sidebar.radio("Navigation", [
+    menu_options = [
         "📊 Manager Dashboard",
         "🧑‍💼 Add Employee",
         "👥 My Employees",
         "🗂 Wijk Management",
         "📝 Approvals",
         "📊 Payroll"
-    ])
+    ]
 
-# EMPLOYEE MENU
 elif role == "employee":
-    menu = st.sidebar.radio("Navigation", [
+    menu_options = [
         "📊 Employee Dashboard",
         "📝 Submit Work",
         "📋 My Work",
         "💰 My Earnings",
         "👤 Profile"
-    ])
+    ]
 
 else:
     st.error("Role not recognized.")
     st.stop()
 
-# Logout button
+selected_menu = st.sidebar.radio("Navigation", menu_options)
+
+# ✔ FIX: only update session_state.menu when manually changed
+if "menu" not in st.session_state:
+    st.session_state.menu = selected_menu
+elif st.session_state.menu == selected_menu:
+    st.session_state.menu = selected_menu
+
 st.sidebar.markdown("---")
 st.sidebar.button("🚪 Logout", on_click=logout)
+
+# Use menu based on session_state
+menu = st.session_state.menu
+
 # ==========================================
 # ZONE 8 — ADMIN DASHBOARD
 # ==========================================
