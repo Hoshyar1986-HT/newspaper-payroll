@@ -397,19 +397,30 @@ if menu == "🧑‍💼 Add Employee" and role in ["admin", "manager"]:
         st.stop()  # NO RERUN → SAFE
 
 # ============================
-# ZONE 14 — LIST EMPLOYEES
+# ZONE 14 — LIST EMPLOYEES (ADMIN + MANAGER)
 # ============================
 
 if menu == "📋 Employee List" and role in ["admin", "manager"]:
 
     st.title("📋 Employee List")
 
-    employees = db_select("employees", "?role=eq.employee")
+    # ------------------------------------
+    # ADMIN → sees all employees
+    # MANAGER → sees only own employees
+    # ------------------------------------
+    if role == "admin":
+        employees = db_select("employees", "?role=eq.employee")
+    else:
+        # Manager sees only employees where manager_username = this manager
+        employees = db_select("employees", f"?manager_username=eq.{username}")
 
     if not employees:
         st.info("No employees found.")
     else:
-        df = pd.DataFrame(employees)[["firstname", "lastname", "username"]]
+        df = pd.DataFrame(employees)[[
+            "firstname", "lastname", "username", "manager_username"
+        ]]
+
         st.dataframe(df, use_container_width=True)
 
     st.markdown("---")
@@ -420,7 +431,7 @@ if menu == "📋 Employee List" and role in ["admin", "manager"]:
 
     if employees:
         usernames = [u["username"] for u in employees]
-        selected = st.selectbox("Select Employee", usernames)
+        selected = st.selectbox("Select Employee to Delete", usernames)
         delete_btn = st.button("Delete Employee")
 
         if delete_btn:
@@ -428,9 +439,11 @@ if menu == "📋 Employee List" and role in ["admin", "manager"]:
             st.success(f"Employee '{selected}' deleted.")
             st.session_state.delete_employee_flag = True
 
+    # SAFE EXIT INSTEAD OF RERUN
     if st.session_state.delete_employee_flag:
         st.session_state.delete_employee_flag = False
-        st.experimental_rerun()
+        st.stop()  # ← no rerun crash
+
 # ============================
 # ZONE 15 — EMPLOYEE: SUBMIT WORK
 # ============================
