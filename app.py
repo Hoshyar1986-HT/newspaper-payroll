@@ -94,24 +94,30 @@ html, body, [class*="css"] { font-size: 16px !important; }
 </style>
 """, unsafe_allow_html=True)
 # ==========================================
-# ZONE 6 — LOGIN SYSTEM
+# ZONE 6 — LOGIN SYSTEM (FINAL SAFE VERSION)
 # ==========================================
 
-# Initialize session state
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "role" not in st.session_state:
     st.session_state.role = None
 if "username" not in st.session_state:
     st.session_state.username = None
+if "login_success" not in st.session_state:
+    st.session_state.login_success = False
+
 
 def logout():
     st.session_state.logged_in = False
     st.session_state.role = None
     st.session_state.username = None
+    st.session_state.login_success = False
     st.experimental_rerun()
 
+
+# If not logged in → show login screen
 if not st.session_state.logged_in:
+
     st.title("🔐 Delvero Login")
 
     username_input = st.text_input("Username")
@@ -119,17 +125,24 @@ if not st.session_state.logged_in:
     login_btn = st.button("Login")
 
     if login_btn:
-        user = get_user_by_username(username_input.strip())
+        user = get_user_by_username(username_input)
 
         if user and check_password(password_input, user["password"]):
+            # Set session states
             st.session_state.logged_in = True
             st.session_state.role = user["role"]
             st.session_state.username = user["username"]
-            st.experimental_rerun()
+            st.session_state.login_success = True
         else:
             st.error("❌ Invalid username or password")
 
+    # SAFE EXIT — NO RERUN INSIDE LOGIN
+    if st.session_state.login_success:
+        # Clear the flag and let Streamlit naturally rerender
+        st.session_state.login_success = False
+
     st.stop()
+
 # ==========================================
 # ZONE 7 — SIDEBAR & NAVIGATION
 # ==========================================
