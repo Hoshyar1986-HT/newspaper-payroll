@@ -237,14 +237,11 @@ if role == "manager" and menu == "📊 Manager Dashboard":
         df = pd.DataFrame(my_emps)[["firstname", "lastname", "username"]]
         st.dataframe(df, use_container_width=True)
 # ==========================================
-# ZONE 10 — ADD MANAGER (ADMIN) — REDIRECT FIXED VERSION
+# ZONE 10 — ADD MANAGER (ADMIN) — FINAL REDIRECT VERSION
 # ==========================================
 if role == "admin" and menu == "➕ Add Manager":
 
     st.title("➕ Add New Manager")
-
-    if "manager_created" not in st.session_state:
-        st.session_state.manager_created = False
 
     with st.form("form_add_manager"):
         fn = st.text_input("First Name")
@@ -257,42 +254,30 @@ if role == "admin" and menu == "➕ Add Manager":
     if submit:
         if not fn or not ln or not uname or not pw:
             st.error("❌ All fields are required.")
-        else:
-            hashed = hash_password(pw)
-
-            result = db_insert("employees", {
-                "firstname": fn,
-                "lastname": ln,
-                "address": addr,
-                "username": uname,
-                "password": hashed,
-                "role": "manager"
-            })
-
-            if result is None:
-                st.error("❌ Failed to create manager.")
-                st.stop()
-
-            st.success(f"Manager '{uname}' created successfully!")
-
-            # Mark that a manager was created
-            st.session_state.manager_created = True
-
-            # STOP → Show success message first
             st.stop()
 
+        hashed = hash_password(pw)
 
-# ------- AFTER PAGE REFRESH -------
-if role == "admin" and st.session_state.get("manager_created", False):
+        result = db_insert("employees", {
+            "firstname": fn,
+            "lastname": ln,
+            "address": addr,
+            "username": uname,
+            "password": hashed,
+            "role": "manager"
+        })
 
-    # Reset flag
-    st.session_state.manager_created = False
+        if result is None:
+            st.error("❌ Failed to create manager.")
+            st.stop()
 
-    # Go to Managers page
-    st.session_state.menu = "📋 Managers"
+        st.success(f"Manager '{uname}' created successfully!")
 
-    # SAFE rerun → Now allowed because we are outside the form
-    st.experimental_rerun()
+        # Redirect instantly by changing session_state and forcing rerender
+        st.session_state.menu = "📋 Managers"
+
+        # THIS forces streamlit to rebuild immediately without error:
+        raise st.experimental_rerun()
 
 # ==========================================
 # ZONE 11 — MANAGERS LIST (VIEW / DELETE / EDIT)
