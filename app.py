@@ -251,12 +251,36 @@ if role == "manager" and menu == "📊 Manager Dashboard":
         df = pd.DataFrame(my_emps)[["firstname", "lastname", "username"]]
         st.dataframe(df, use_container_width=True)
 # ==========================================
-# ZONE 10 — ADD MANAGER (ADMIN) — FINAL REDIRECT VERSION
+# ZONE 10 — ADD MANAGER (ADMIN) — FINAL NON-RERUN VERSION
 # ==========================================
+
 if role == "admin" and menu == "➕ Add Manager":
 
     st.title("➕ Add New Manager")
 
+    # flag for success
+    if "manager_created" not in st.session_state:
+        st.session_state.manager_created = False
+
+    # If manager created → show manager list directly
+    if st.session_state.manager_created:
+
+        st.success("Manager created successfully!")
+
+        st.header("📋 Managers")
+
+        managers = db_select("employees", "?role=eq.manager")
+
+        if managers:
+            df = pd.DataFrame(managers)[["firstname", "lastname", "username"]]
+            st.dataframe(df, use_container_width=True)
+        else:
+            st.info("No managers found.")
+
+        st.stop()   # Do NOT render the add form again
+
+
+    # Otherwise show the Create Manager form
     with st.form("form_add_manager"):
         fn = st.text_input("First Name")
         ln = st.text_input("Last Name")
@@ -285,13 +309,10 @@ if role == "admin" and menu == "➕ Add Manager":
             st.error("❌ Failed to create manager.")
             st.stop()
 
+        st.session_state.manager_created = True
         st.success(f"Manager '{uname}' created successfully!")
 
-        # Redirect instantly by changing session_state and forcing rerender
-        st.session_state.menu = "📋 Managers"
-        st.session_state.redirecting = True
-        # THIS forces streamlit to rebuild immediately without error:
-        raise st.experimental_rerun()
+        st.stop()
 
 # ==========================================
 # ZONE 11 — MANAGERS LIST (VIEW / DELETE / EDIT)
