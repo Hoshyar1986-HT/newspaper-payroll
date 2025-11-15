@@ -237,7 +237,7 @@ if role == "manager" and menu == "📊 Manager Dashboard":
         df = pd.DataFrame(my_emps)[["firstname", "lastname", "username"]]
         st.dataframe(df, use_container_width=True)
 # ==========================================
-# ZONE 10 — ADD MANAGER (ADMIN) — FINAL STABLE VERSION
+# ZONE 10 — ADD MANAGER (ADMIN) — FINAL FIX (NO RERUN)
 # ==========================================
 if role == "admin" and menu == "➕ Add Manager":
 
@@ -256,11 +256,10 @@ if role == "admin" and menu == "➕ Add Manager":
 
     if submit:
         if not fn or not ln or not uname or not pw:
-            st.error("❌ All required fields must be filled.")
+            st.error("❌ All fields are required.")
         else:
             hashed = hash_password(pw)
 
-            # Insert into Supabase
             result = db_insert("employees", {
                 "firstname": fn,
                 "lastname": ln,
@@ -270,20 +269,23 @@ if role == "admin" and menu == "➕ Add Manager":
                 "role": "manager"
             })
 
-            # Check if Supabase returned an error
             if result is None:
-                st.error("❌ Failed to create manager. See logs above.")
+                st.error("❌ Failed to create manager.")
                 st.stop()
 
-            # Success
-            st.session_state.manager_created = True
             st.success(f"Manager '{uname}' created successfully!")
 
-    # Redirect ONLY AFTER a successful insert
+            # Set the redirect target
+            st.session_state.manager_created = True
+
+            # STOP — allow Streamlit to naturally rerender
+            st.stop()
+
+    # After rerender → redirect happens naturally
     if st.session_state.manager_created:
         st.session_state.manager_created = False
         st.session_state.menu = "📋 Managers"
-        st.experimental_rerun()
+        st.stop()
 
 # ==========================================
 # ZONE 11 — MANAGERS LIST (VIEW / DELETE / EDIT)
