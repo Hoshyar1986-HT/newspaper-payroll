@@ -81,18 +81,6 @@ def get_user_by_username(username):
     if users and isinstance(users, list) and len(users) > 0:
         return users[0]
     return None
-# ==========================================
-# TEMP — HASH GENERATOR TOOL
-# ==========================================
-if "show_hash_tool" not in st.session_state:
-    st.session_state.show_hash_tool = True
-
-if st.session_state.show_hash_tool:
-    st.warning("TEMP — HASH TOOL ACTIVE")
-    pw = st.text_input("Enter password to hash:")
-    if st.button("Generate Hash"):
-        st.code(hash_password(pw))
-    st.stop()
 
 
 # ==========================================
