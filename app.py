@@ -143,8 +143,12 @@ if not st.session_state.logged_in:
 
 
 # ==========================================
-# ZONE 7 — SIDEBAR & NAVIGATION (FIXED FOR REDIRECT)
+# ZONE 7 — SIDEBAR & NAVIGATION (FINAL FIX)
 # ==========================================
+
+# redirect flag
+if "redirecting" not in st.session_state:
+    st.session_state.redirecting = False
 
 role = st.session_state.role
 username = st.session_state.username
@@ -154,6 +158,7 @@ st.sidebar.write(f"👤 **{username}**")
 st.sidebar.write(f"🔑 **{role.capitalize()}**")
 st.sidebar.markdown("---")
 
+# Role-based menu
 if role == "admin":
     menu_options = [
         "📊 Admin Dashboard",
@@ -191,17 +196,18 @@ else:
 
 selected_menu = st.sidebar.radio("Navigation", menu_options)
 
-# ✔ FIX: only update session_state.menu when manually changed
-if "menu" not in st.session_state:
+# 🔥 FINAL LOGIC
+if st.session_state.redirecting:
+    # redirect happened → do NOT override
+    menu = st.session_state.menu
+else:
+    # user clicked in sidebar → update menu
     st.session_state.menu = selected_menu
-elif st.session_state.menu == selected_menu:
-    st.session_state.menu = selected_menu
+    menu = selected_menu
 
+# logout button
 st.sidebar.markdown("---")
 st.sidebar.button("🚪 Logout", on_click=logout)
-
-# Use menu based on session_state
-menu = st.session_state.menu
 
 # ==========================================
 # ZONE 8 — ADMIN DASHBOARD
@@ -283,7 +289,7 @@ if role == "admin" and menu == "➕ Add Manager":
 
         # Redirect instantly by changing session_state and forcing rerender
         st.session_state.menu = "📋 Managers"
-
+        st.session_state.redirecting = True
         # THIS forces streamlit to rebuild immediately without error:
         raise st.experimental_rerun()
 
