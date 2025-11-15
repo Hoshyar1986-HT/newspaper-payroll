@@ -12,6 +12,18 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+# TEMP: HASH CHECK TOOL
+if "show_hash_tool" not in st.session_state:
+    st.session_state.show_hash_tool = True
+
+if st.session_state.show_hash_tool:
+    st.warning("TEMP — HASH TOOL ACTIVE")
+    pw = st.text_input("Enter password to hash:")
+    if st.button("Generate Hash"):
+        st.code(hash_password(pw))
+    st.stop()
+
+
 # ==========================================
 # ZONE 2 — SUPABASE CONFIG
 # ==========================================
