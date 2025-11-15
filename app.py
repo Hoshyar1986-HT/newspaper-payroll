@@ -334,16 +334,36 @@ if role == "admin" and menu == "📋 List Managers":
         st.stop()  # ← این خط مشکل را ۱۰۰٪ حل می‌کند
 
 # ============================
-# ZONE 13 — ADD EMPLOYEE
+# ZONE 13 — ADD EMPLOYEE (ADMIN & MANAGER)
 # ============================
 
-if menu == "➕ Add Employee" and role in ["admin", "manager"]:
+if menu == "🧑‍💼 Add Employee" and role in ["admin", "manager"]:
 
-    st.title("➕ Add Employee")
+    st.title("🧑‍💼 Add New Employee")
 
     if "employee_created" not in st.session_state:
         st.session_state.employee_created = False
 
+    # -----------------------------
+    # ADMIN → must choose a manager
+    # -----------------------------
+    selected_manager = None
+
+    if role == "admin":
+        managers = db_select("employees", "?role=eq.manager")
+        manager_usernames = [m["username"] for m in managers]
+
+        selected_manager = st.selectbox("Select Manager", manager_usernames)
+
+    # -----------------------------
+    # MANAGER → auto-assign employee to themselves
+    # -----------------------------
+    if role == "manager":
+        selected_manager = st.session_state.username
+
+    # -----------------------------
+    # Employee Form
+    # -----------------------------
     with st.form("form_add_employee"):
         firstname = st.text_input("First Name")
         lastname = st.text_input("Last Name")
@@ -355,16 +375,17 @@ if menu == "➕ Add Employee" and role in ["admin", "manager"]:
     if submit_btn:
         if not firstname or not lastname or not username_new or not password_new:
             st.error("❌ All fields except Address are required.")
-
         else:
             hashed_pw = hash_password(password_new)
+
             db_insert("employees", {
                 "firstname": firstname,
                 "lastname": lastname,
                 "address": address,
                 "username": username_new,
                 "password": hashed_pw,
-                "role": "employee"
+                "role": "employee",
+                "manager_username": selected_manager   # 🟢 NEW FIELD
             })
 
             st.success(f"Employee {firstname} {lastname} created successfully!")
@@ -373,7 +394,8 @@ if menu == "➕ Add Employee" and role in ["admin", "manager"]:
     if st.session_state.employee_created:
         st.session_state.employee_created = False
         st.session_state.menu = "📋 Employee List"
-        st.experimental_rerun()
+        st.stop()  # NO RERUN → SAFE
+
 # ============================
 # ZONE 14 — LIST EMPLOYEES
 # ============================
