@@ -237,7 +237,7 @@ if role == "manager" and menu == "📊 Manager Dashboard":
         df = pd.DataFrame(my_emps)[["firstname", "lastname", "username"]]
         st.dataframe(df, use_container_width=True)
 # ==========================================
-# ZONE 10 — ADD MANAGER (ADMIN) — FINAL FIX (NO RERUN)
+# ZONE 10 — ADD MANAGER (ADMIN) — REDIRECT FIXED VERSION
 # ==========================================
 if role == "admin" and menu == "➕ Add Manager":
 
@@ -275,17 +275,24 @@ if role == "admin" and menu == "➕ Add Manager":
 
             st.success(f"Manager '{uname}' created successfully!")
 
-            # Set the redirect target
+            # Mark that a manager was created
             st.session_state.manager_created = True
 
-            # STOP — allow Streamlit to naturally rerender
+            # STOP → Show success message first
             st.stop()
 
-    # After rerender → redirect happens naturally
-    if st.session_state.manager_created:
-        st.session_state.manager_created = False
-        st.session_state.menu = "📋 Managers"
-        st.stop()
+
+# ------- AFTER PAGE REFRESH -------
+if role == "admin" and st.session_state.get("manager_created", False):
+
+    # Reset flag
+    st.session_state.manager_created = False
+
+    # Go to Managers page
+    st.session_state.menu = "📋 Managers"
+
+    # SAFE rerun → Now allowed because we are outside the form
+    st.experimental_rerun()
 
 # ==========================================
 # ZONE 11 — MANAGERS LIST (VIEW / DELETE / EDIT)
