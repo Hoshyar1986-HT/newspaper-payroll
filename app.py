@@ -452,77 +452,83 @@ if menu == "🗂 Wijk Management" and role in ["admin", "manager"]:
     else:
         st.info("No wijks created yet.")
 # ==========================================
-# ZONE 15 — EMPLOYEE: SUBMIT WORK (ENHANCED)
+# ZONE 15 — EMPLOYEE: SUBMIT WORK
 # ==========================================
 if role == "employee" and menu == "📝 Submit Work":
 
     st.title("📝 Submit Daily Work")
 
-    # --------------- Load Wijk Options ---------------
-    wijks = db_select("wijk") or []
-    wijk_names = sorted([w["wijk_name"] for w in wijks])
-    wijk_map = {w["wijk_name"]: w for w in wijks}
+    # تاریخ امروز پیش‌فرض
+    today = datetime.today().date()
 
-    # --------------- Copy from Yesterday ---------------
-    yesterday = datetime.now().date() - timedelta(days=1)
-    logs = db_select("work_logs", f"?username=eq.{username}&date=eq.{yesterday}") or []
-    copied_wijks = []
-    copied_km = 0
-    copied_notes = ""
-    if logs:
-        copied_wijks = [log["wijk_name"] for log in logs]
-        copied_km = logs[0].get("trip_km", 0)
-        copied_notes = logs[0].get("notes", "")
+    # بازیابی ویک‌های موجود
+    wijks_data = db_select("wijk") or []
+    wijk_names = sorted([w["wijk_name"] for w in wijks_data]) if wijks_data else []
 
-    # --------------- Daily Form ---------------
-    with st.form("submit_daily_work"):
-        date = st.date_input("Date", datetime.now().date())
+    # فرم اصلی
+    with st.form("submit_work_form"):
+        work_date = st.date_input("Date", value=today)
 
-        st.markdown("**🔍 Select or Enter Wijk(s)**")
-        wijk_entries = []
-        for i in range(1, 4):
-            wijk = st.text_input(f"Wijk #{i}", value=copied_wijks[i-1] if len(copied_wijks) >= i else "")
-            if wijk:
-                wijk_entries.append(wijk)
+        st.markdown("#### Enter Wijk(s) You Delivered Today")
 
-        st.markdown("**🌍 Trip Distance (KM)**")
-        trip_km = st.number_input("Total KM", min_value=0, max_value=400, value=int(copied_km))
+        wijk_inputs = []
+        for i in range(3):  # می‌توان عدد 3 را افزایش داد برای تعداد بیشتر
+            wijk_col = st.text_input(f"Wijk #{i+1}", key=f"wijk_input_{i}")
+            depot_col = st.text_input(f"Depot for Wijk #{i+1}", key=f"depot_input_{i}")
+            wijk_inputs.append((wijk_col.strip(), depot_col.strip()))
 
-        st.markdown("**💭 Notes (Optional)**")
-        notes = st.text_input("Note", value=copied_notes)
+        trip_km = st.number_input("Total Trip KM", min_value=0, max_value=300)
+        notes = st.text_area("Notes (optional)")
 
         submit = st.form_submit_button("Submit Work")
 
     if submit:
-        for wijk_name in wijk_entries:
+        # گرفتن نام مدیر مربوط به این کارمند
+        emp = db_select("employees", f"?username=eq.{username}")
+        if emp and isinstance(emp, list) and len(emp) > 0:
+            manager_username = emp[0].get("manager_username")
+        else:
+            st.error("Manager not found for this user.")
+            st.stop()
 
-            # Check if wijk exists in main table
-            if wijk_name in wijk_map:
-                selected = wijk_map[wijk_name]
-                segments = selected.get("segments", 0)
-                depot = selected.get("depot", "")
-                base_price = selected.get("base_price", 0)
+        success = False
+
+        for wijk_name, depot in wijk_inputs:
+            if not wijk_name:
+                continue
+
+            # اگر این wijk از قبل ثبت شده بود → depot را از جدول اصلی برداریم
+            matched = next((w for w in wijks_data if w["wijk_name"] == wijk_name), None)
+
+            if matched:
+                final_depot = matched["depot"]
             else:
-                # New wijk (miscellaneous)
-                depot = st.text_input(f"Depot for new wijk '{wijk_name}'")
-                segments = st.number_input(f"Segments for '{wijk_name}'", min_value=1, max_value=10, key=wijk_name)
-                base_price = 0  # default
+                final_depot = depot  # از کارمند گرفته شده
 
+            # ثبت هر ویک جداگانه
             db_insert("work_logs", {
                 "employee_username": username,
-                "manager_username": get_user_by_username(username).get("manager_username"),
-                "date": str(date),
+                "manager_username": manager_username,
+                "date": str(work_date),
                 "wijk_name": wijk_name,
+                "depot": final_depot,
                 "trip_km": trip_km,
-                "segments": segments,
+                "segments": None,
                 "status": "pending",
-                "notes": notes,
                 "price_final": None,
-                "earn_final": None
+                "earn_final": None,
+                "notes": notes,
+                "created_at": datetime.now().isoformat()
             })
 
-        st.success("Work submitted successfully!")
-        st.stop()
+            success = True
+
+        if success:
+            st.success("✅ Work log(s) submitted successfully!")
+            st.experimental_rerun()
+        else:
+            st.warning("⚠ No wijk entries provided.")
+
 
 
 # ==========================================
