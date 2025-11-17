@@ -452,35 +452,79 @@ if menu == "🗂 Wijk Management" and role in ["admin", "manager"]:
     else:
         st.info("No wijks created yet.")
 # ==========================================
-# ZONE 15 — EMPLOYEE: SUBMIT WORK
+# ZONE 15 — EMPLOYEE: SUBMIT WORK (ENHANCED)
 # ==========================================
 if role == "employee" and menu == "📝 Submit Work":
 
     st.title("📝 Submit Daily Work")
 
+    # --------------- Load Wijk Options ---------------
     wijks = db_select("wijk") or []
-    wijk_options = [w["wijk_name"] for w in wijks]
+    wijk_names = sorted([w["wijk_name"] for w in wijks])
+    wijk_map = {w["wijk_name"]: w for w in wijks}
 
-    with st.form("submit_work_form"):
-        date = st.date_input("Date")
-        wijk_name = st.selectbox("Wijk", wijk_options)
-        trip_km = st.number_input("Trip KM", min_value=0, max_value=300)
-        submit = st.form_submit_button("Submit")
+    # --------------- Copy from Yesterday ---------------
+    yesterday = datetime.now().date() - timedelta(days=1)
+    logs = db_select("work_logs", f"?username=eq.{username}&date=eq.{yesterday}") or []
+    copied_wijks = []
+    copied_km = 0
+    copied_notes = ""
+    if logs:
+        copied_wijks = [log["wijk_name"] for log in logs]
+        copied_km = logs[0].get("trip_km", 0)
+        copied_notes = logs[0].get("notes", "")
+
+    # --------------- Daily Form ---------------
+    with st.form("submit_daily_work"):
+        date = st.date_input("Date", datetime.now().date())
+
+        st.markdown("**🔍 Select or Enter Wijk(s)**")
+        wijk_entries = []
+        for i in range(1, 4):
+            wijk = st.text_input(f"Wijk #{i}", value=copied_wijks[i-1] if len(copied_wijks) >= i else "")
+            if wijk:
+                wijk_entries.append(wijk)
+
+        st.markdown("**🌍 Trip Distance (KM)**")
+        trip_km = st.number_input("Total KM", min_value=0, max_value=400, value=int(copied_km))
+
+        st.markdown("**💭 Notes (Optional)**")
+        notes = st.text_input("Note", value=copied_notes)
+
+        submit = st.form_submit_button("Submit Work")
 
     if submit:
-        db_insert("work_logs", {
-            "username": username,
-            "date": str(date),
-            "wijk": wijk_name,
-            "trip_km": trip_km,
-            "status": "pending",
-            "manager_username": db_select(
-                "employees",
-                f"?username=eq.{username}"
-            )[0]["manager_username"]
-        })
-        st.success("Work submitted!")
+        for wijk_name in wijk_entries:
+
+            # Check if wijk exists in main table
+            if wijk_name in wijk_map:
+                selected = wijk_map[wijk_name]
+                segments = selected.get("segments", 0)
+                depot = selected.get("depot", "")
+                base_price = selected.get("base_price", 0)
+            else:
+                # New wijk (miscellaneous)
+                depot = st.text_input(f"Depot for new wijk '{wijk_name}'")
+                segments = st.number_input(f"Segments for '{wijk_name}'", min_value=1, max_value=10, key=wijk_name)
+                base_price = 0  # default
+
+            db_insert("work_logs", {
+                "employee_username": username,
+                "manager_username": get_user_by_username(username).get("manager_username"),
+                "date": str(date),
+                "wijk_name": wijk_name,
+                "trip_km": trip_km,
+                "segments": segments,
+                "status": "pending",
+                "notes": notes,
+                "price_final": None,
+                "earn_final": None
+            })
+
+        st.success("Work submitted successfully!")
         st.stop()
+
+
 # ==========================================
 # ZONE 16 — LOAD PAYROLL DATA
 # ==========================================
