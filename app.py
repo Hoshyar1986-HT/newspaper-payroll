@@ -249,7 +249,7 @@ if role == "manager" and menu == "📊 Manager Dashboard":
         st.info("You don't have employees yet.")
     else:
         df = pd.DataFrame(my_emps)[["firstname", "lastname", "username"]]
-        df.index = df.index + 1 st.dataframe(df, use_container_width=True)
+        st.dataframe(df, use_container_width=True)
 # ==========================================
 # ZONE 10 — ADD MANAGER (ADMIN) — FINAL NON-RERUN VERSION
 # ==========================================
@@ -273,7 +273,7 @@ if role == "admin" and menu == "➕ Add Manager":
 
         if managers:
             df = pd.DataFrame(managers)[["firstname", "lastname", "username"]]
-            df.index = df.index + 1 st.dataframe(df, use_container_width=True)
+            st.dataframe(df, use_container_width=True)
         else:
             st.info("No managers found.")
 
@@ -327,7 +327,7 @@ if role == "admin" and menu == "📋 Managers":
         st.info("No managers found.")
     else:
         df = pd.DataFrame(managers)[["firstname", "lastname", "username", "address"]]
-        df.index = df.index + 1 st.dataframe(df, use_container_width=True)
+        st.dataframe(df, use_container_width=True)
 
         st.markdown("---")
         st.subheader("🗑 Delete Manager")
@@ -404,7 +404,7 @@ if menu == "👥 Employees" and role in ["admin", "manager"]:
         df = pd.DataFrame(employees)[[
             "firstname", "lastname", "username", "manager_username"
         ]]
-        df.index = df.index + 1 st.dataframe(df, use_container_width=True)
+        st.dataframe(df, use_container_width=True)
 
         st.markdown("---")
         st.subheader("🗑 Delete Employee")
@@ -430,7 +430,7 @@ if menu == "👥 My Employees" and role == "manager":
         st.info("No employees assigned to you yet.")
     else:
         df = pd.DataFrame(my_emps)[["firstname", "lastname", "username"]]
-        df.index = df.index + 1 st.dataframe(df, use_container_width=True)
+        st.dataframe(df, use_container_width=True)
 
 # ==========================================
 # ZONE 14 — WIJK MANAGEMENT (ADMIN + MANAGER)
@@ -463,7 +463,7 @@ if menu == "🗂 Wijk Management" and role in ["admin", "manager"]:
     wijks = db_select("wijk") or []
     if wijks:
         df = pd.DataFrame(wijks)[["wijk_name", "depot", "segments", "base_price", "created_by"]]
-        df.index = df.index + 1 st.dataframe(df, use_container_width=True)
+        st.dataframe(df, use_container_width=True)
     else:
         st.info("No wijks created yet.")
 # ==========================================
@@ -631,7 +631,7 @@ if role == "manager" and menu == "📝 Approvals":
 
     df = pd.DataFrame(pending)[["username", "date", "wijk", "trip_km", "segments"]]
 
-    df.index = df.index + 1 st.dataframe(df, use_container_width=True)
+    st.dataframe(df, use_container_width=True)
 
     st.markdown("---")
     st.subheader("Select a log to approve:")
