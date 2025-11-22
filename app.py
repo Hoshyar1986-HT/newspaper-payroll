@@ -418,6 +418,21 @@ if menu == "👥 Employees" and role in ["admin", "manager"]:
             st.success(f"Employee '{selected}' deleted.")
             st.stop()
 # ==========================================
+# ZONE 13A — My Employees (Manager-only View)
+# ==========================================
+if menu == "👥 My Employees" and role == "manager":
+
+    st.title("👥 My Employees")
+
+    my_emps = db_select("employees", f"?manager_username=eq.{username}") or []
+
+    if not my_emps:
+        st.info("No employees assigned to you yet.")
+    else:
+        df = pd.DataFrame(my_emps)[["firstname", "lastname", "username"]]
+        st.dataframe(df, use_container_width=True)
+
+# ==========================================
 # ZONE 14 — WIJK MANAGEMENT (ADMIN + MANAGER)
 # ==========================================
 if menu == "🗂 Wijk Management" and role in ["admin", "manager"]:
