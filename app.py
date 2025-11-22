@@ -417,20 +417,45 @@ if menu == "👥 Employees" and role in ["admin", "manager"]:
             db_delete("employees", f"?username=eq.{selected}")
             st.success(f"Employee '{selected}' deleted.")
             st.stop()
-# ==========================================
-# ZONE 13A — My Employees (Manager-only View)
-# ==========================================
-if menu == "👥 My Employees" and role == "manager":
-
+if role == "manager" and menu == "👥 My Employees":
     st.title("👥 My Employees")
 
-    my_emps = db_select("employees", f"?manager_username=eq.{username}") or []
+    employees = db_select(
+        "employees",
+        f"?role=eq.employee&manager_username=eq.{username}"
+    ) or []
 
-    if not my_emps:
-        st.info("No employees assigned to you yet.")
+    if not employees:
+        st.info("You don't have any employees yet.")
+        st.stop()
+
+    # 🎯 نمایش لیست انتخابی برای هر کارمند
+    usernames = [f"{e['firstname']} {e['lastname']} ({e['username']})" for e in employees]
+    selected = st.selectbox("Select an employee to view payroll:", usernames)
+
+    # استخراج username واقعی
+    selected_username = selected.split("(")[-1].replace(")", "").strip()
+
+    # 🔽 نمایش جدول payroll برای همان کارمند
+    st.subheader(f"📊 Payroll for {selected_username}")
+
+    start_date = st.date_input("Start Date", datetime.now() - timedelta(days=30))
+    end_date = st.date_input("End Date", datetime.now())
+
+    df = load_payroll(username_filter=selected_username,
+                      manager_filter=username,
+                      start_date=start_date,
+                      end_date=end_date)
+
+    if df.empty:
+        st.info("No payroll data available.")
     else:
-        df = pd.DataFrame(my_emps)[["firstname", "lastname", "username"]]
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        view_df = df[[
+            "date", "Day", "wijk", "segments", "trip_km",
+            "Wijk Price (€)", "Trip Cost (€)", "Wijk Earn (€)", "Day Earn (€)", "status"
+        ]]
+        st.dataframe(view_df, use_container_width=True)
+
 
 # ==========================================
 # ZONE 14 — WIJK MANAGEMENT (ADMIN + MANAGER)
