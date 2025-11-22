@@ -458,6 +458,47 @@ if role == "manager" and menu == "👥 My Employees":
 
 
 # ==========================================
+# ZONE 13A — MANAGER: My Employees + Payroll View
+# ==========================================
+if role == "manager" and menu == "👥 My Employees":
+    st.title("👥 My Employees")
+
+    employees = db_select(
+        "employees",
+        f"?role=eq.employee&manager_username=eq.{username}"
+    ) or []
+
+    if not employees:
+        st.info("You don't have any employees yet.")
+        st.stop()
+
+    usernames = [f"{e['firstname']} {e['lastname']} ({e['username']})" for e in employees]
+    selected = st.selectbox("Select an employee to view payroll:", usernames)
+
+    selected_username = selected.split("(")[-1].replace(")", "").strip()
+
+    st.subheader(f"📊 Payroll for {selected_username}")
+
+    start_date = st.date_input("Start Date", datetime.now() - timedelta(days=30), key="payroll_start")
+    end_date = st.date_input("End Date", datetime.now(), key="payroll_end")
+
+    # 🔧 Make sure load_payroll is already defined before here!
+    df = load_payroll(
+        username_filter=selected_username,
+        manager_filter=username,
+        start_date=start_date,
+        end_date=end_date
+    )
+
+    if df.empty:
+        st.info("No payroll data available.")
+    else:
+        view_df = df[[
+            "date", "Day", "wijk", "segments", "trip_km",
+            "Wijk Price (€)", "Trip Cost (€)", "Wijk Earn (€)", "Day Earn (€)", "status"
+        ]]
+        st.dataframe(view_df, use_container_width=True)
+# ==========================================
 # ZONE 14 — WIJK MANAGEMENT (ADMIN + MANAGER)
 # ==========================================
 if menu == "🗂 Wijk Management" and role in ["admin", "manager"]:
