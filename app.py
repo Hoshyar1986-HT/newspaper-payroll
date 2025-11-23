@@ -239,7 +239,6 @@ elif role == "manager":
     menu_options = [
         "📊 Manager Dashboard",
         "🧑‍💼 Add Employee",
-        "👥 My Employees",
         "🗂 Wijk Management",
         "📝 Approvals",
         "📊 Payroll"
@@ -292,11 +291,13 @@ if role == "admin" and menu == "📊 Admin Dashboard":
     st.markdown("### System Overview")
     st.info("A full analytics dashboard will be added in version 1.2.0.")
 # ==========================================
-# ZONE 9 — MANAGER DASHBOARD
+# ZONE 9 — MANAGER DASHBOARD (UPDATED)
 # ==========================================
+
 if role == "manager" and menu == "📊 Manager Dashboard":
     st.title("📊 Manager Dashboard")
 
+    # load team employees
     my_emps = db_select("employees", f"?manager_username=eq.{username}") or []
     pending_logs = db_select("work_logs", f"?manager_username=eq.{username}&status=eq.pending") or []
     approved_logs = db_select("work_logs", f"?manager_username=eq.{username}&status=eq.approved") or []
@@ -306,13 +307,32 @@ if role == "manager" and menu == "📊 Manager Dashboard":
     col2.metric("Pending Approvals", len(pending_logs))
     col3.metric("Approved Logs", len(approved_logs))
 
-    st.markdown("### My Team")
+    st.markdown("### 👥 My Team")
 
     if not my_emps:
         st.info("You don't have employees yet.")
-    else:
-        df = pd.DataFrame(my_emps)[["firstname", "lastname", "username"]]
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.stop()
+
+    # clickable employee list
+    df = pd.DataFrame(my_emps)[["firstname", "lastname", "username"]]
+    df["Full Name"] = df["firstname"] + " " + df["lastname"]
+    df = df[["Full Name", "username"]]
+
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+    st.markdown("### 🔍 Open Payroll for an Employee")
+
+    selected_user = st.selectbox(
+        "Select Employee",
+        [e["username"] for e in my_emps]
+    )
+
+    if st.button("Go to Payroll"):
+        st.session_state.menu = "📊 Payroll"
+        st.session_state.redirecting = True
+        st.session_state.selected_payroll_user = selected_user
+        st.experimental_rerun()
+
 # ==========================================
 # ZONE 10 — ADD MANAGER (ADMIN) — FINAL NON-RERUN VERSION
 # ==========================================
@@ -642,7 +662,13 @@ if menu == "📊 Payroll" and role in ["admin", "manager"]:
     else:
         emps = db_select("employees", f"?role=eq.employee&manager_username=eq.{username}") or []
     emp_list = ["All"] + [e["username"] for e in emps]
+    # if redirected from manager dashboard
+if "selected_payroll_user" in st.session_state:
+    selected_user = st.session_state.selected_payroll_user
+    st.session_state.selected_payroll_user = None
+else:
     selected_user = st.selectbox("Select Employee", emp_list)
+
     start_date = st.date_input("📅 Start Date", datetime.now() - timedelta(days=30))
     end_date   = st.date_input("📅 End Date", datetime.now())
     df = load_payroll(
