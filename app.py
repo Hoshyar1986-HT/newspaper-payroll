@@ -90,6 +90,18 @@ html, body, [class*="css"] { font-size: 16px !important; }
 .sidebar-title { font-size: 24px !important; font-weight: 700 !important; padding: 10px 0 20px 0; }
 </style>
 """, unsafe_allow_html=True)
+
+st.markdown("""
+<script>
+window.addEventListener('message', (event) => {
+    if (event.data.event === 'open_payroll') {
+        const newUrl = window.location.href.split('?')[0] + '?payroll=' + event.data.user;
+        window.location.href = newUrl;
+    }
+});
+</script>
+""", unsafe_allow_html=True)
+
 # ==========================================
 # ZONE 6 — NEW MOBILE-FRIENDLY LOGIN SCREEN
 # ==========================================
@@ -291,13 +303,12 @@ if role == "admin" and menu == "📊 Admin Dashboard":
     st.markdown("### System Overview")
     st.info("A full analytics dashboard will be added in version 1.2.0.")
 # ==========================================
-# ZONE 9 — MANAGER DASHBOARD (UPDATED)
+# ZONE 9 — MANAGER DASHBOARD (UPDATED — CLICKABLE EMPLOYEES)
 # ==========================================
 
 if role == "manager" and menu == "📊 Manager Dashboard":
     st.title("📊 Manager Dashboard")
 
-    # load team employees
     my_emps = db_select("employees", f"?manager_username=eq.{username}") or []
     pending_logs = db_select("work_logs", f"?manager_username=eq.{username}&status=eq.pending") or []
     approved_logs = db_select("work_logs", f"?manager_username=eq.{username}&status=eq.approved") or []
@@ -313,25 +324,29 @@ if role == "manager" and menu == "📊 Manager Dashboard":
         st.info("You don't have employees yet.")
         st.stop()
 
-    # clickable employee list
+    # تبدیل لیست به DataFrame
     df = pd.DataFrame(my_emps)[["firstname", "lastname", "username"]]
     df["Full Name"] = df["firstname"] + " " + df["lastname"]
     df = df[["Full Name", "username"]]
 
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    # نمایش لینک به جای سطر کلیک‌پذیر
+    st.markdown("#### Click on an employee to open Payroll")
 
-    st.markdown("### 🔍 Open Payroll for an Employee")
+    for idx, row in df.iterrows():
+        full = row["Full Name"]
+        user = row["username"]
 
-    selected_user = st.selectbox(
-        "Select Employee",
-        [e["username"] for e in my_emps]
-    )
+        # لینک ساخته می‌شود → روی آن کلیک = رفتن به Payroll
+        link = f"""
+        <a href="#" onclick="window.parent.postMessage({{'event':'open_payroll','user':'{user}'}}, '*')" 
+           style="font-size:18px; display:block; padding:8px 4px;">
+           👤 {full}
+        </a>
+        """
+        st.markdown(link, unsafe_allow_html=True)
 
-    if st.button("Go to Payroll"):
-        st.session_state.menu = "📊 Payroll"
-        st.session_state.redirecting = True
-        st.session_state.selected_payroll_user = selected_user
-        st.experimental_rerun()
+    # دریافت پیام کلیک
+    clicked_user = st.experimental_get_query_params().get("open_payroll", None)
 
 # ==========================================
 # ZONE 10 — ADD MANAGER (ADMIN) — FINAL NON-RERUN VERSION
@@ -652,47 +667,62 @@ if role == "manager" and menu == "📝 Approvals":
         st.warning("Rejected.")
         st.stop()
 # ==========================================
-# ZONE 18 — PAYROLL DASHBOARD
+# ZONE 18 — PAYROLL DASHBOARD (UPDATED FULL VERSION)
 # ==========================================
 
 if menu == "📊 Payroll" and role in ["admin", "manager"]:
     st.title("📊 Payroll Dashboard")
+
+    # Load employees based on role
     if role == "admin":
         emps = db_select("employees", "?role=eq.employee") or []
     else:
         emps = db_select("employees", f"?role=eq.employee&manager_username=eq.{username}") or []
-    emp_list = ["All"] + [e["username"] for e in emps]
-    # if redirected from manager dashboard
-if "selected_payroll_user" in st.session_state:
-    selected_user = st.session_state.selected_payroll_user
-    st.session_state.selected_payroll_user = None
-else:
-    selected_user = st.selectbox("Select Employee", emp_list)
 
+    emp_list = ["All"] + [e["username"] for e in emps]
+
+    # NEW: Check if redirected from Manager Dashboard
+    params = st.experimental_get_query_params()
+
+    if "payroll" in params:
+        selected_user = params["payroll"][0]
+    else:
+        selected_user = "All"  # default (no selectbox)
+
+    # Date filters
     start_date = st.date_input("📅 Start Date", datetime.now() - timedelta(days=30))
     end_date   = st.date_input("📅 End Date", datetime.now())
+
+    # Load filtered payroll data
     df = load_payroll(
         username_filter=None if selected_user == "All" else selected_user,
         manager_filter=None if role == "admin" else username,
         start_date=start_date,
         end_date=end_date
     )
+
     if df.empty:
         st.info("No data available for this selection.")
         st.stop()
+
+    # Clean display
     view_df = df[[
         "date", "Day", "username", "wijk",
         "segments", "trip_km", "Wijk Price (€)",
         "Trip Cost (€)", "Wijk Earn (€)", "Day Earn (€)", "status"
     ]]
+
     st.dataframe(view_df, use_container_width=True)
+
     st.markdown("---")
     st.subheader("Summary")
+
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Earn (€)", f"€ {view_df['Day Earn (€)'].sum():,.2f}")
     col2.metric("Total Segments", view_df["segments"].sum())
     col3.metric("Total KM", view_df["trip_km"].sum())
     col4.metric("Total Trip Cost (€)", f"€ {view_df['Trip Cost (€)'].sum():,.2f}")
+
 # ==========================================
 # ZONE 19 — EMPLOYEE EARNINGS
 # ==========================================
