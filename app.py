@@ -201,6 +201,10 @@ if not st.session_state.logged_in:
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.stop()
+def logout():
+    st.session_state.logged_in = False
+    st.session_state.username = None
+    st.session_state.role = None
 
 # ==========================================
 # ZONE 7 — SIDEBAR & NAVIGATION (FINAL FIX)
