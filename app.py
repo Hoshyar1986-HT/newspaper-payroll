@@ -669,6 +669,15 @@ if role == "manager" and menu == "📝 Approvals":
 # detect redirect from dashboard
 if "selected_payroll_user" in st.session_state and st.session_state.selected_payroll_user:
     selected_user = st.session_state.selected_payroll_user
+    st.session_state.selected_payroll_user = None   # <<< THIS LINE IS IMPORTANT
+else:
+    selected_user = "All"
+
+
+
+# detect redirect from dashboard
+if "selected_payroll_user" in st.session_state and st.session_state.selected_payroll_user:
+    selected_user = st.session_state.selected_payroll_user
     st.session_state.selected_payroll_user = None
 else:
     selected_user = "All"
