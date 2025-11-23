@@ -91,14 +91,79 @@ html, body, [class*="css"] { font-size: 16px !important; }
 </style>
 """, unsafe_allow_html=True)
 # ==========================================
-# ZONE 6 — LOGIN SYSTEM (PERFECT SINGLE-CLICK VERSION)
+# ZONE 6 — NEW MOBILE-FRIENDLY LOGIN SCREEN
 # ==========================================
+
+# Session init
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "username" not in st.session_state:
     st.session_state.username = None
 if "role" not in st.session_state:
     st.session_state.role = None
+
+# Modern CSS for responsive centered login form
+st.markdown("""
+<style>
+
+body {
+    background: #f7f8fc !important;
+}
+
+.login-container {
+    max-width: 420px;
+    margin: auto;
+    margin-top: 7vh;
+    background: white;
+    padding: 35px 30px;
+    border-radius: 18px;
+    box-shadow: 0px 8px 22px rgba(0,0,0,0.08);
+}
+
+.login-title {
+    text-align: center;
+    font-size: 32px;
+    font-weight: 800;
+    margin-bottom: 25px;
+}
+
+@media (max-width: 600px) {
+    .login-container {
+        margin-top: 3vh;
+        padding: 28px 22px;
+        border-radius: 16px;
+    }
+    .login-title {
+        font-size: 26px;
+    }
+}
+
+/* Make input fields modern */
+.login-form .stTextInput>div>div>input {
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 16px;
+}
+
+/* Login button */
+.stButton>button {
+    width: 100%;
+    background: #3F51B5;
+    color: white;
+    padding: 14px 0px;
+    font-size: 18px;
+    border-radius: 12px;
+    border: none;
+    margin-top: 15px;
+}
+
+.stButton>button:hover {
+    background: #303f9f;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
 
 def do_login():
     username = st.session_state.login_user
@@ -113,26 +178,30 @@ def do_login():
     else:
         st.session_state.login_error = "❌ Invalid username or password"
 
-def logout():
-    st.session_state.logged_in = False
-    st.session_state.username = None
-    st.session_state.role = None
-
-# ------------- LOGIN SCREEN -------------
+# If not logged in → show login screen
 if not st.session_state.logged_in:
 
-    st.title("🔐 Delvero Login")
+    st.markdown("<div class='login-container'>", unsafe_allow_html=True)
 
-    st.text_input("Username", key="login_user")
-    st.text_input("Password", type="password", key="login_pass")
+    st.markdown(
+        "<h2 class='login-title'>🔐 Delvero Login</h2>",
+        unsafe_allow_html=True
+    )
 
-    if "login_error" in st.session_state:
-        st.error(st.session_state.login_error)
+    # Modern login form
+    with st.container():
+        st.text_input("Username", key="login_user")
+        st.text_input("Password", type="password", key="login_pass")
 
-    # ONE CLICK login — no stop(), no rerun
-    st.button("Login", on_click=do_login)
+        if "login_error" in st.session_state:
+            st.error(st.session_state.login_error)
+
+        st.button("Login", on_click=do_login)
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
     st.stop()
+
 # ==========================================
 # ZONE 7 — SIDEBAR & NAVIGATION (FINAL FIX)
 # ==========================================
