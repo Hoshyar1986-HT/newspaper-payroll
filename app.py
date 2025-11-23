@@ -303,7 +303,7 @@ if role == "admin" and menu == "📊 Admin Dashboard":
     st.markdown("### System Overview")
     st.info("A full analytics dashboard will be added in version 1.2.0.")
 # ==========================================
-# ZONE 9 — MANAGER DASHBOARD (UPDATED — CLICKABLE EMPLOYEES)
+# ZONE 9 — MANAGER DASHBOARD (FINAL CLEAN VERSION)
 # ==========================================
 
 if role == "manager" and menu == "📊 Manager Dashboard":
@@ -324,29 +324,25 @@ if role == "manager" and menu == "📊 Manager Dashboard":
         st.info("You don't have employees yet.")
         st.stop()
 
-    # تبدیل لیست به DataFrame
+    # Convert employees into a dataframe
     df = pd.DataFrame(my_emps)[["firstname", "lastname", "username"]]
     df["Full Name"] = df["firstname"] + " " + df["lastname"]
     df = df[["Full Name", "username"]]
 
-    # نمایش لینک به جای سطر کلیک‌پذیر
-    st.markdown("#### Click on an employee to open Payroll")
+    st.dataframe(df, use_container_width=True, hide_index=True)
 
-    for idx, row in df.iterrows():
-        full = row["Full Name"]
-        user = row["username"]
+    st.markdown("### Tap an employee below to open Payroll")
 
-        # لینک ساخته می‌شود → روی آن کلیک = رفتن به Payroll
-        link = f"""
-        <a href="#" onclick="window.parent.postMessage({{'event':'open_payroll','user':'{user}'}}, '*')" 
-           style="font-size:18px; display:block; padding:8px 4px;">
-           👤 {full}
-        </a>
-        """
-        st.markdown(link, unsafe_allow_html=True)
+    # ========== CLICKABLE EMPLOYEE LIST ==========
+    for emp in my_emps:
+        fullname = emp["firstname"] + " " + emp["lastname"]
+        uname = emp["username"]
 
-    # دریافت پیام کلیک
-    clicked_user = st.experimental_get_query_params().get("open_payroll", None)
+        if st.button(f"👤 {fullname}", key=f"emp_{uname}"):
+            st.session_state.selected_payroll_user = uname
+            st.session_state.menu = "📊 Payroll"
+            st.session_state.redirecting = True
+            st.experimental_rerun()
 
 # ==========================================
 # ZONE 10 — ADD MANAGER (ADMIN) — FINAL NON-RERUN VERSION
@@ -669,6 +665,12 @@ if role == "manager" and menu == "📝 Approvals":
 # ==========================================
 # ZONE 18 — PAYROLL DASHBOARD (UPDATED FULL VERSION)
 # ==========================================
+# detect redirect from dashboard
+if "selected_payroll_user" in st.session_state and st.session_state.selected_payroll_user:
+    selected_user = st.session_state.selected_payroll_user
+    st.session_state.selected_payroll_user = None
+else:
+    selected_user = "All"
 
 if menu == "📊 Payroll" and role in ["admin", "manager"]:
     st.title("📊 Payroll Dashboard")
