@@ -685,7 +685,7 @@ if menu == "📊 Payroll" and role in ["admin", "manager"]:
     emp_list = ["All"] + [e["username"] for e in emps]
 
     # NEW: Check if redirected from Manager Dashboard
-    params = st.experimental_get_query_params()
+    params = params = st.query_params
 
     if "payroll" in params:
         selected_user = params["payroll"][0]
