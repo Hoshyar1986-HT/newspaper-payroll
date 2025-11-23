@@ -13,12 +13,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-
 # ==========================================
 # ZONE 2 — SUPABASE CONFIG
 # ==========================================
 SUPABASE_URL = "https://qggrtnyfgvlrmoopjdte.supabase.co"
-SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnZ3J0bnlmZ3Zscm1vb3BqZHRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxMTYxMjQsImV4cCI6MjA3ODY5MjEyNH0.WCSXtc_l5aNndAOTagLW-LWQPePIWPlLNRkWx_MNacI"   # <--- replace this!
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnZ3J0bnlmZ3Zscm1vb3BqZHRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxMTYxMjQsImV4cCI6MjA3ODY5MjEyNH0.WCSXtc_l5aNndAOTagLW-LWQPePIWPlLNRkWx_MNacI"
 # ==========================================
 # ZONE 3 — DATABASE HELPER FUNCTIONS
 # ==========================================
@@ -81,8 +80,6 @@ def get_user_by_username(username):
     if users and isinstance(users, list) and len(users) > 0:
         return users[0]
     return None
-
-
 # ==========================================
 # ZONE 5 — GLOBAL CSS
 # ==========================================
@@ -96,14 +93,12 @@ html, body, [class*="css"] { font-size: 16px !important; }
 # ==========================================
 # ZONE 6 — LOGIN SYSTEM (PERFECT SINGLE-CLICK VERSION)
 # ==========================================
-
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "username" not in st.session_state:
     st.session_state.username = None
 if "role" not in st.session_state:
     st.session_state.role = None
-
 
 def do_login():
     username = st.session_state.login_user
@@ -118,12 +113,10 @@ def do_login():
     else:
         st.session_state.login_error = "❌ Invalid username or password"
 
-
 def logout():
     st.session_state.logged_in = False
     st.session_state.username = None
     st.session_state.role = None
-
 
 # ------------- LOGIN SCREEN -------------
 if not st.session_state.logged_in:
@@ -140,8 +133,6 @@ if not st.session_state.logged_in:
     st.button("Login", on_click=do_login)
 
     st.stop()
-
-
 # ==========================================
 # ZONE 7 — SIDEBAR & NAVIGATION (FINAL FIX)
 # ==========================================
@@ -208,7 +199,6 @@ else:
 # logout button
 st.sidebar.markdown("---")
 st.sidebar.button("🚪 Logout", on_click=logout)
-
 # ==========================================
 # ZONE 8 — ADMIN DASHBOARD
 # ==========================================
@@ -258,15 +248,11 @@ if role == "admin" and menu == "➕ Add Manager":
 
     st.title("➕ Add New Manager")
 
-    # flag for success
     if "manager_created" not in st.session_state:
         st.session_state.manager_created = False
 
-    # If manager created → show manager list directly
     if st.session_state.manager_created:
-
         st.success("Manager created successfully!")
-
         st.header("📋 Managers")
 
         managers = db_select("employees", "?role=eq.manager")
@@ -276,11 +262,8 @@ if role == "admin" and menu == "➕ Add Manager":
             st.dataframe(df, use_container_width=True, hide_index=True)
         else:
             st.info("No managers found.")
+        st.stop()
 
-        st.stop()   # Do NOT render the add form again
-
-
-    # Otherwise show the Create Manager form
     with st.form("form_add_manager"):
         fn = st.text_input("First Name")
         ln = st.text_input("Last Name")
@@ -295,7 +278,6 @@ if role == "admin" and menu == "➕ Add Manager":
             st.stop()
 
         hashed = hash_password(pw)
-
         result = db_insert("employees", {
             "firstname": fn,
             "lastname": ln,
@@ -311,9 +293,7 @@ if role == "admin" and menu == "➕ Add Manager":
 
         st.session_state.manager_created = True
         st.success(f"Manager '{uname}' created successfully!")
-
         st.stop()
-
 # ==========================================
 # ZONE 11 — MANAGERS LIST (VIEW / DELETE / EDIT)
 # ==========================================
@@ -383,27 +363,20 @@ if menu == "🧑‍💼 Add Employee" and role in ["admin", "manager"]:
 # ==========================================
 # ZONE 13 — EMPLOYEE LIST (ADMIN + MANAGER)
 # ==========================================
+
 if menu == "👥 Employees" and role in ["admin", "manager"]:
 
     st.title("👥 Employee List")
 
-    # Admin → sees all employees
     if role == "admin":
         employees = db_select("employees", "?role=eq.employee") or []
-
-    # Manager → sees only own employees
     else:
-        employees = db_select(
-            "employees",
-            f"?role=eq.employee&manager_username=eq.{username}"
-        ) or []
+        employees = db_select("employees", f"?role=eq.employee&manager_username=eq.{username}") or []
 
     if not employees:
         st.info("No employees found.")
     else:
-        df = pd.DataFrame(employees)[[
-            "firstname", "lastname", "username", "manager_username"
-        ]]
+        df = pd.DataFrame(employees)[["firstname", "lastname", "username", "manager_username"]]
         st.dataframe(df, use_container_width=True, hide_index=True)
 
         st.markdown("---")
@@ -417,90 +390,10 @@ if menu == "👥 Employees" and role in ["admin", "manager"]:
             db_delete("employees", f"?username=eq.{selected}")
             st.success(f"Employee '{selected}' deleted.")
             st.stop()
-if role == "manager" and menu == "👥 My Employees":
-    st.title("👥 My Employees")
-
-    employees = db_select(
-        "employees",
-        f"?role=eq.employee&manager_username=eq.{username}"
-    ) or []
-
-    if not employees:
-        st.info("You don't have any employees yet.")
-        st.stop()
-
-    # 🎯 نمایش لیست انتخابی برای هر کارمند
-    usernames = [f"{e['firstname']} {e['lastname']} ({e['username']})" for e in employees]
-    selected = st.selectbox("Select an employee to view payroll:", usernames)
-
-    # استخراج username واقعی
-    selected_username = selected.split("(")[-1].replace(")", "").strip()
-
-    # 🔽 نمایش جدول payroll برای همان کارمند
-    st.subheader(f"📊 Payroll for {selected_username}")
-
-    start_date = st.date_input("Start Date", datetime.now() - timedelta(days=30))
-    end_date = st.date_input("End Date", datetime.now())
-
-    df = load_payroll(username_filter=selected_username,
-                      manager_filter=username,
-                      start_date=start_date,
-                      end_date=end_date)
-
-    if df.empty:
-        st.info("No payroll data available.")
-    else:
-        view_df = df[[
-            "date", "Day", "wijk", "segments", "trip_km",
-            "Wijk Price (€)", "Trip Cost (€)", "Wijk Earn (€)", "Day Earn (€)", "status"
-        ]]
-        st.dataframe(view_df, use_container_width=True)
-
-
-# ==========================================
-# ZONE 13A — MANAGER: My Employees + Payroll View
-# ==========================================
-if role == "manager" and menu == "👥 My Employees":
-    st.title("👥 My Employees")
-
-    employees = db_select(
-        "employees",
-        f"?role=eq.employee&manager_username=eq.{username}"
-    ) or []
-
-    if not employees:
-        st.info("You don't have any employees yet.")
-        st.stop()
-
-    usernames = [f"{e['firstname']} {e['lastname']} ({e['username']})" for e in employees]
-    selected = st.selectbox("Select an employee to view payroll:", usernames)
-
-    selected_username = selected.split("(")[-1].replace(")", "").strip()
-
-    st.subheader(f"📊 Payroll for {selected_username}")
-
-    start_date = st.date_input("Start Date", datetime.now() - timedelta(days=30), key="payroll_start")
-    end_date = st.date_input("End Date", datetime.now(), key="payroll_end")
-
-    # 🔧 Make sure load_payroll is already defined before here!
-    df = load_payroll(
-        username_filter=selected_username,
-        manager_filter=username,
-        start_date=start_date,
-        end_date=end_date
-    )
-
-    if df.empty:
-        st.info("No payroll data available.")
-    else:
-        view_df = df[[
-            "date", "Day", "wijk", "segments", "trip_km",
-            "Wijk Price (€)", "Trip Cost (€)", "Wijk Earn (€)", "Day Earn (€)", "status"
-        ]]
-        st.dataframe(view_df, use_container_width=True)
 # ==========================================
 # ZONE 14 — WIJK MANAGEMENT (ADMIN + MANAGER)
 # ==========================================
+
 if menu == "🗂 Wijk Management" and role in ["admin", "manager"]:
 
     st.title("🗂 Wijk Management")
@@ -535,36 +428,29 @@ if menu == "🗂 Wijk Management" and role in ["admin", "manager"]:
 # ==========================================
 # ZONE 15 — EMPLOYEE: SUBMIT WORK
 # ==========================================
+
 if role == "employee" and menu == "📝 Submit Work":
 
     st.title("📝 Submit Daily Work")
 
-    # تاریخ امروز پیش‌فرض
     today = datetime.today().date()
-
-    # بازیابی ویک‌های موجود
     wijks_data = db_select("wijk") or []
     wijk_names = sorted([w["wijk_name"] for w in wijks_data]) if wijks_data else []
 
-    # فرم اصلی
     with st.form("submit_work_form"):
         work_date = st.date_input("Date", value=today)
-
         st.markdown("#### Enter Wijk(s) You Delivered Today")
-
         wijk_inputs = []
-        for i in range(3):  # می‌توان عدد 3 را افزایش داد برای تعداد بیشتر
+        for i in range(3):
             wijk_col = st.text_input(f"Wijk #{i+1}", key=f"wijk_input_{i}")
             depot_col = st.text_input(f"Depot for Wijk #{i+1}", key=f"depot_input_{i}")
             wijk_inputs.append((wijk_col.strip(), depot_col.strip()))
 
         trip_km = st.number_input("Total Trip KM", min_value=0, max_value=300)
         notes = st.text_area("Notes (optional)")
-
         submit = st.form_submit_button("Submit Work")
 
     if submit:
-        # گرفتن نام مدیر مربوط به این کارمند
         emp = db_select("employees", f"?username=eq.{username}")
         if emp and isinstance(emp, list) and len(emp) > 0:
             manager_username = emp[0].get("manager_username")
@@ -573,20 +459,12 @@ if role == "employee" and menu == "📝 Submit Work":
             st.stop()
 
         success = False
-
         for wijk_name, depot in wijk_inputs:
             if not wijk_name:
                 continue
-
-            # اگر این wijk از قبل ثبت شده بود → depot را از جدول اصلی برداریم
             matched = next((w for w in wijks_data if w["wijk_name"] == wijk_name), None)
+            final_depot = matched["depot"] if matched else depot
 
-            if matched:
-                final_depot = matched["depot"]
-            else:
-                final_depot = depot  # از کارمند گرفته شده
-
-            # ثبت هر ویک جداگانه
             db_insert("work_logs", {
                 "employee_username": username,
                 "manager_username": manager_username,
@@ -601,7 +479,6 @@ if role == "employee" and menu == "📝 Submit Work":
                 "notes": notes,
                 "created_at": datetime.now().isoformat()
             })
-
             success = True
 
         if success:
@@ -609,163 +486,109 @@ if role == "employee" and menu == "📝 Submit Work":
             st.experimental_rerun()
         else:
             st.warning("⚠ No wijk entries provided.")
-
-
-
 # ==========================================
 # ZONE 16 — LOAD PAYROLL DATA
 # ==========================================
+
 def load_payroll(username_filter=None, manager_filter=None, start_date=None, end_date=None):
-
     query = "?select=username,date,trip_km,wijk,status,segments,manager_username"
-
     if username_filter:
         query += f"&username=eq.{username_filter}"
-
     if manager_filter:
         query += f"&manager_username=eq.{manager_filter}"
-
     if start_date:
         query += f"&date=gte.{start_date}"
-
     if end_date:
         query += f"&date=lte.{end_date}"
-
     logs = db_select("work_logs", query)
-
     if not logs or logs == [{}]:
         return pd.DataFrame()
-
     if isinstance(logs, dict):
         logs = [logs]
-
     logs = [x for x in logs if isinstance(x, dict) and x]
-
     if not logs:
         return pd.DataFrame()
-
     df = pd.DataFrame(logs)
-
     required = ["username", "date", "wijk", "segments", "trip_km", "status", "manager_username"]
     for c in required:
         if c not in df.columns:
             df[c] = None
-
     df["date"] = pd.to_datetime(df["date"])
     df["Day"] = df["date"].dt.day_name()
-
-    # Clean non-numeric
     df["segments"] = pd.to_numeric(df["segments"], errors="coerce").fillna(0)
     df["trip_km"] = pd.to_numeric(df["trip_km"], errors="coerce").fillna(0)
-
-    # ---- get wijk prices from wijk table ----
     wijk_table = db_select("wijk") or []
-    wijk_price_map = {}
-
-    for w in wijk_table:
-        wijk_price_map[w["wijk_name"]] = w.get("base_price", 0)
-
+    wijk_price_map = {w["wijk_name"]: w.get("base_price", 0) for w in wijk_table}
     def compute_price(wijk_name, segments):
         if wijk_name in wijk_price_map:
             return wijk_price_map[wijk_name]
-
-        # fallback rule if no price set:
         if segments == 2: return 650
         if segments == 3: return 750
         if segments == 4: return 850
         return 500 + 100 * segments
-
     df["Wijk Price (€)"] = df.apply(lambda r: compute_price(r["wijk"], r["segments"]), axis=1)
-
     df["Trip Cost (€)"] = df["trip_km"] * 0.16
     df["Wijk Earn (€)"] = df["Wijk Price (€)"] / 26
     df["Day Earn (€)"] = df["Wijk Earn (€)"] + df["Trip Cost (€)"]
-
     return df
 # ==========================================
 # ZONE 17 — MANAGER APPROVALS
 # ==========================================
+
 if role == "manager" and menu == "📝 Approvals":
-
     st.title("📝 Approvals — Pending Work Logs")
-
     pending = db_select("work_logs", f"?manager_username=eq.{username}&status=eq.pending") or []
-
     if not pending:
         st.info("No pending approvals.")
         st.stop()
-
     df = pd.DataFrame(pending)[["username", "date", "wijk", "trip_km", "segments"]]
-
     st.dataframe(df, use_container_width=True, hide_index=True)
-
     st.markdown("---")
     st.subheader("Select a log to approve:")
-
     options = [f"{p['username']} — {p['date']} — {p['wijk']}" for p in pending]
     selected = st.selectbox("Pending Logs", options)
-
     approve_btn = st.button("Approve")
     reject_btn = st.button("Reject")
-
     chosen = pending[options.index(selected)]
-
     if approve_btn:
-        db_update("work_logs",
-                  f"?id=eq.{chosen['id']}",
-                  {"status": "approved"})
+        db_update("work_logs", f"?id=eq.{chosen['id']}", {"status": "approved"})
         st.success("Approved!")
         st.stop()
-
     if reject_btn:
-        db_update("work_logs",
-                  f"?id=eq.{chosen['id']}",
-                  {"status": "rejected"})
+        db_update("work_logs", f"?id=eq.{chosen['id']}", {"status": "rejected"})
         st.warning("Rejected.")
         st.stop()
 # ==========================================
 # ZONE 18 — PAYROLL DASHBOARD
 # ==========================================
+
 if menu == "📊 Payroll" and role in ["admin", "manager"]:
-
     st.title("📊 Payroll Dashboard")
-
-    # Employee filter
     if role == "admin":
         emps = db_select("employees", "?role=eq.employee") or []
     else:
-        emps = db_select("employees",
-                         f"?role=eq.employee&manager_username=eq.{username}") or []
-
+        emps = db_select("employees", f"?role=eq.employee&manager_username=eq.{username}") or []
     emp_list = ["All"] + [e["username"] for e in emps]
-
     selected_user = st.selectbox("Select Employee", emp_list)
-
     start_date = st.date_input("📅 Start Date", datetime.now() - timedelta(days=30))
     end_date   = st.date_input("📅 End Date", datetime.now())
-
     df = load_payroll(
         username_filter=None if selected_user == "All" else selected_user,
         manager_filter=None if role == "admin" else username,
         start_date=start_date,
         end_date=end_date
     )
-
     if df.empty:
         st.info("No data available for this selection.")
         st.stop()
-
     view_df = df[[
         "date", "Day", "username", "wijk",
         "segments", "trip_km", "Wijk Price (€)",
         "Trip Cost (€)", "Wijk Earn (€)", "Day Earn (€)", "status"
     ]]
-
     st.dataframe(view_df, use_container_width=True)
-
     st.markdown("---")
     st.subheader("Summary")
-
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Earn (€)", f"€ {view_df['Day Earn (€)'].sum():,.2f}")
     col2.metric("Total Segments", view_df["segments"].sum())
@@ -800,6 +623,8 @@ if role == "employee" and menu == "💰 My Earnings":
     col1.metric("Total Earn (€)", f"€ {df['Day Earn (€)'].sum():,.2f}")
     col2.metric("Total KM", df["trip_km"].sum())
     col3.metric("Approved Days", len(df[df["status"] == "approved"]))
+
+
 # ==========================================
 # ZONE 20 — FOOTER
 # ==========================================
