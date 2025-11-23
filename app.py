@@ -342,7 +342,8 @@ if role == "manager" and menu == "📊 Manager Dashboard":
             st.session_state.selected_payroll_user = uname
             st.session_state.menu = "📊 Payroll"
             st.session_state.redirecting = True
-            st.experimental_rerun()
+            st.rerun()
+
 
 # ==========================================
 # ZONE 10 — ADD MANAGER (ADMIN) — FINAL NON-RERUN VERSION
